@@ -2,14 +2,12 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"tangled.org/onev.cat/tang/internal/auth"
 	"tangled.org/onev.cat/tang/internal/config"
 	tanggit "tangled.org/onev.cat/tang/internal/git"
-	localrepo "tangled.org/onev.cat/tang/internal/repo"
 	"tangled.org/onev.cat/tang/internal/tangled"
 )
 
@@ -152,11 +150,7 @@ func repoSelector(cmd *cobra.Command, cfg *config.Config, args []string) (string
 	if len(args) > 0 {
 		return splitOwnerRepo(args[0])
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", "", err
-	}
-	context, err := localrepo.Resolve(cmd.Context(), cwd, cfg)
+	context, err := currentRepoContext(cmd, cfg)
 	if err != nil {
 		return "", "", err
 	}

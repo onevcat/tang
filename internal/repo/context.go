@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"tangled.org/onev.cat/tang/internal/config"
 	tanggit "tangled.org/onev.cat/tang/internal/git"
 )
 
 var ErrNoRepositoryContext = errors.New("not in a Tangled repository")
+var ErrInvalidRepositorySelector = errors.New("invalid repository selector")
 
 type RepositoryContext struct {
 	Owner      string            `json:"owner"`
@@ -28,6 +30,40 @@ func Resolve(ctx context.Context, cwd string, cfg *config.Config) (*RepositoryCo
 		return nil, err
 	}
 	return SelectRemote(remotes, cfg.Remote)
+}
+
+func ResolveSelector(selector string, cfg *config.Config) (*RepositoryContext, error) {
+	selector = strings.Trim(strings.TrimSpace(selector), "/")
+	if strings.HasPrefix(selector, "https://") {
+		selector = strings.TrimPrefix(selector, "https://")
+	}
+	if strings.HasPrefix(selector, "http://") {
+		selector = strings.TrimPrefix(selector, "http://")
+	}
+	parts := strings.Split(selector, "/")
+	knot := defaultKnotHost(cfg)
+	var owner, name string
+	switch len(parts) {
+	case 2:
+		owner, name = parts[0], parts[1]
+	case 3:
+		knot, owner, name = strings.TrimSuffix(parts[0], "/"), parts[1], parts[2]
+	default:
+		return nil, fmt.Errorf("%w: repository must be [HOST/]OWNER/NAME", ErrInvalidRepositorySelector)
+	}
+	if owner == "" || name == "" || knot == "" {
+		return nil, fmt.Errorf("%w: repository must be [HOST/]OWNER/NAME", ErrInvalidRepositorySelector)
+	}
+	ownerType := tanggit.OwnerTypeHandle
+	if strings.HasPrefix(owner, "did:") {
+		ownerType = tanggit.OwnerTypeDID
+	}
+	return &RepositoryContext{
+		Owner:     owner,
+		OwnerType: ownerType,
+		Name:      strings.TrimSuffix(name, ".git"),
+		Knot:      knot,
+	}, nil
 }
 
 func SelectRemote(remotes []tanggit.Remote, configuredRemote string) (*RepositoryContext, error) {
@@ -64,4 +100,11 @@ func fromRemote(remote tanggit.Remote) *RepositoryContext {
 		Knot:       remote.Knot,
 		URLKind:    remote.URLKind,
 	}
+}
+
+func defaultKnotHost(cfg *config.Config) string {
+	if cfg != nil && len(cfg.Knot.Hosts) > 0 {
+		return cfg.Knot.Hosts[0]
+	}
+	return config.DefaultKnotHost
 }

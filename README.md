@@ -385,4 +385,8 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
 - `repo create` requires a create-capable knot. Pass `--knot` when the default
   service route is not sufficient.
 - `pr merge` depends on the repository knot's `sh.tangled.repo.merge` endpoint.
-  It is a remote patch merge, not a local worktree merge.
+  It is a remote patch merge, not a local worktree merge. The knot applies the
+  pull request patch on top of the target branch and creates new commits, so the
+  commits that land on the target branch do not keep the same object IDs as the
+  source branch. This is closer to replaying patches than to a GitHub-style merge
+  commit, and the source branch is not automatically advanced or deleted.

@@ -268,6 +268,9 @@ func issueDependencies(cmd *cobra.Command) (*config.Config, *tangled.IssueServic
 }
 
 func currentRepoContext(cmd *cobra.Command, cfg *config.Config) (*repo.RepositoryContext, error) {
+	if selector := repoFlagValue(cmd); selector != "" {
+		return repo.ResolveSelector(selector, cfg)
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -277,6 +280,14 @@ func currentRepoContext(cmd *cobra.Command, cfg *config.Config) (*repo.Repositor
 		return nil, err
 	}
 	return context, nil
+}
+
+func repoFlagValue(cmd *cobra.Command) string {
+	flag := cmd.Flag("repo")
+	if flag == nil {
+		return ""
+	}
+	return strings.TrimSpace(flag.Value.String())
 }
 
 func addBodyFlags(cmd *cobra.Command, flags *bodyFlags) {
