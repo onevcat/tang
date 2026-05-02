@@ -68,6 +68,22 @@ func (c *PDSClient) CreateRecord(ctx context.Context, repo, collection string, r
 	})
 }
 
+func (c *PDSClient) PutRecord(ctx context.Context, repo, collection, rkey string, record cbg.CBORMarshaler, swapRecord *string) (*comatproto.RepoPutRecord_Output, error) {
+	validate := false
+	return comatproto.RepoPutRecord(ctx, c.client, &comatproto.RepoPutRecord_Input{
+		Repo:       repo,
+		Collection: collection,
+		Rkey:       rkey,
+		Record:     &util.LexiconTypeDecoder{Val: record},
+		SwapRecord: swapRecord,
+		Validate:   &validate,
+	})
+}
+
+func (c *PDSClient) GetRecord(ctx context.Context, repo, collection, rkey string) (*comatproto.RepoGetRecord_Output, error) {
+	return comatproto.RepoGetRecord(ctx, c.client, "", collection, repo, rkey)
+}
+
 func (c *PDSClient) DeleteRecord(ctx context.Context, repo, collection, rkey string) error {
 	_, err := comatproto.RepoDeleteRecord(ctx, c.client, &comatproto.RepoDeleteRecord_Input{
 		Repo:       repo,
