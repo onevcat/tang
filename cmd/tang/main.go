@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"tangled.org/onev.cat/tang/internal/cli"
@@ -18,6 +19,7 @@ func main() {
 		Commit:  commit,
 	})
 	if err := root.Execute(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

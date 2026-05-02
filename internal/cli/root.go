@@ -34,9 +34,14 @@ func NewRootCommand(build BuildInfo) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&opts.JSONFields, "json", "", "Output JSON, optionally filtered by comma-separated fields")
 	cmd.PersistentFlags().StringVarP(&opts.Repo, "repo", "R", "", "Select another repository using [HOST/]OWNER/REPO")
 	cmd.PersistentFlags().StringVar(&opts.PDS, "pds", "", "Override PDS URL for auth and testing")
+	cmd.PersistentFlags().Lookup("json").NoOptDefVal = "*"
 
 	cmd.AddCommand(newVersionCommand(build))
 	cmd.AddCommand(newCompletionCommand(cmd))
+	cmd.AddCommand(newAuthCommand(opts))
+	cmd.AddCommand(newConfigCommand(opts))
+	cmd.AddCommand(newStatusCommand(opts))
+	cmd.AddCommand(newSSHKeyCommand(opts))
 	return cmd
 }
 
