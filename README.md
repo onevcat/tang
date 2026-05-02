@@ -36,6 +36,12 @@ may take a short time to reflect the latest state.
 
 ## Installation
 
+Install with Homebrew on macOS arm64:
+
+```sh
+brew install onevcat/tap/tang
+```
+
 Build a local binary:
 
 ```sh
@@ -344,6 +350,18 @@ make lint
 make build
 ./bin/tang --help
 ```
+
+Release a macOS arm64 Homebrew asset:
+
+```sh
+git tag -a v0.0.1 -m "tang v0.0.1"
+git push origin v0.0.1
+scripts/release-homebrew.sh 0.0.1 --upload
+```
+
+The release script builds a precompiled macOS arm64 binary, applies an ad-hoc
+code signature when `codesign` is available, writes `dist/checksums.txt`, and
+uploads the asset to `onevcat/homebrew-tap` when `--upload` is present.
 
 The main implementation areas are:
 
