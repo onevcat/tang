@@ -2,6 +2,7 @@ package tangled
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -95,4 +96,12 @@ func (c *PDSClient) DeleteRecord(ctx context.Context, repo, collection, rkey str
 
 func (c *PDSClient) ListRecords(ctx context.Context, repo, collection string, limit int64, cursor string) (*comatproto.RepoListRecords_Output, error) {
 	return comatproto.RepoListRecords(ctx, c.client, collection, cursor, limit, repo, false)
+}
+
+func (c *PDSClient) UploadBlob(ctx context.Context, input io.Reader) (*comatproto.RepoUploadBlob_Output, error) {
+	return comatproto.RepoUploadBlob(ctx, c.client, input)
+}
+
+func (c *PDSClient) GetBlob(ctx context.Context, did, cid string) ([]byte, error) {
+	return comatproto.SyncGetBlob(ctx, c.client, cid, did)
 }

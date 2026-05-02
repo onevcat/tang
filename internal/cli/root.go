@@ -44,6 +44,8 @@ func NewRootCommand(build BuildInfo) *cobra.Command {
 	cmd.AddCommand(newSSHKeyCommand(opts))
 	cmd.AddCommand(newIssueCommand(opts))
 	cmd.AddCommand(newBrowseCommand(opts))
+	cmd.AddCommand(newRepoCommand(opts))
+	cmd.AddCommand(newPRCommand(opts))
 	return cmd
 }
 

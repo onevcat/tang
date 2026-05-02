@@ -230,3 +230,17 @@ func Clone(ctx context.Context, url string, dir string) error {
 	}
 	return nil
 }
+
+func CheckoutBranchFromRemote(ctx context.Context, cwd, remote, branch string) error {
+	fetch := exec.CommandContext(ctx, "git", "fetch", remote, branch) // #nosec G204 -- executable is fixed; remote/branch are explicit CLI inputs.
+	fetch.Dir = cwd
+	if out, err := fetch.CombinedOutput(); err != nil {
+		return fmt.Errorf("git fetch failed: %s: %w", bytes.TrimSpace(out), err)
+	}
+	checkout := exec.CommandContext(ctx, "git", "checkout", "-B", branch, "FETCH_HEAD") // #nosec G204 -- executable is fixed; branch is an explicit CLI input.
+	checkout.Dir = cwd
+	if out, err := checkout.CombinedOutput(); err != nil {
+		return fmt.Errorf("git checkout failed: %s: %w", bytes.TrimSpace(out), err)
+	}
+	return nil
+}
