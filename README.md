@@ -351,17 +351,16 @@ make build
 ./bin/tang --help
 ```
 
-Release a macOS arm64 Homebrew asset:
+Prepare a release by updating `CHANGELOG.md`, then run the full release script:
 
 ```sh
-git tag -a v0.0.1 -m "tang v0.0.1"
-git push origin v0.0.1
-scripts/release-homebrew.sh 0.0.1 --upload
+scripts/release.sh 0.0.2
 ```
 
-The release script builds a precompiled macOS arm64 binary, applies an ad-hoc
-code signature when `codesign` is available, writes `dist/checksums.txt`, and
-uploads the asset to `onevcat/homebrew-tap` when `--upload` is present.
+The release script runs tests, tags and pushes `vX.Y.Z`, builds a precompiled
+macOS arm64 binary, applies an ad-hoc code signature when `codesign` is
+available, uploads the asset to `onevcat/homebrew-tap`, updates the Homebrew
+formula, and verifies installation with `brew`.
 
 The main implementation areas are:
 

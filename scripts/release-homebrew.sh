@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/release-homebrew.sh <version> [--upload] [--repo owner/repo]
+  scripts/release-homebrew.sh <version> [--upload] [--repo owner/repo] [--notes-file path]
 
 Build the macOS arm64 Homebrew release asset for tang.
 
@@ -15,6 +15,7 @@ Options:
   --upload           Create a GitHub release and upload the generated asset.
   --repo owner/repo  GitHub repository that receives release assets.
                      Defaults to onevcat/homebrew-tap.
+  --notes-file path  Release notes used when --upload creates the GitHub release.
 
 The script expects tag v<version> to exist and point to HEAD. It creates:
   dist/tang-<version>-darwin-arm64.tar.gz
@@ -25,6 +26,7 @@ USAGE
 version=""
 upload="false"
 release_repo="onevcat/homebrew-tap"
+notes_file=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +38,14 @@ while [[ $# -gt 0 ]]; do
       release_repo="${2:-}"
       if [[ -z "$release_repo" ]]; then
         echo "error: --repo requires owner/repo" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --notes-file)
+      notes_file="${2:-}"
+      if [[ -z "$notes_file" ]]; then
+        echo "error: --notes-file requires a path" >&2
         exit 2
       fi
       shift 2
@@ -124,8 +134,15 @@ echo "Homebrew URL:"
 echo "https://github.com/${release_repo}/releases/download/${release_tag}/${asset_name}.tar.gz"
 
 if [[ "$upload" == "true" ]]; then
-  gh release create "$release_tag" "$archive" "$checksums" \
-    --repo "$release_repo" \
-    --title "tang ${version}" \
-    --notes "macOS arm64 prebuilt binary for tang ${version}."
+  release_args=(
+    release create "$release_tag" "$archive" "$checksums"
+    --repo "$release_repo"
+    --title "tang ${version}"
+  )
+  if [[ -n "$notes_file" ]]; then
+    release_args+=(--notes-file "$notes_file")
+  else
+    release_args+=(--notes "macOS arm64 prebuilt binary for tang ${version}.")
+  fi
+  gh "${release_args[@]}"
 fi
