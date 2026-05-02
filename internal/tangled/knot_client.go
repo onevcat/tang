@@ -57,3 +57,7 @@ func (c *KnotClient) CreateRepo(ctx context.Context, input *core.RepoCreate_Inpu
 func (c *KnotClient) Merge(ctx context.Context, input *core.RepoMerge_Input) error {
 	return core.RepoMerge(ctx, c.client, input)
 }
+
+func (c *KnotClient) MergeCheck(ctx context.Context, input *core.RepoMergeCheck_Input) (*core.RepoMergeCheck_Output, error) {
+	return core.RepoMergeCheck(ctx, c.client, input)
+}

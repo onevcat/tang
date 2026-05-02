@@ -36,6 +36,7 @@ type Pull struct {
 	Target    string `json:"target"`
 	Source    string `json:"source,omitempty"`
 	Branch    string `json:"branch,omitempty"`
+	Mergeable string `json:"mergeable,omitempty"`
 }
 
 type PullCreateOptions struct {
@@ -265,6 +266,29 @@ func (s *PullService) FetchPullPatch(ctx context.Context, pullURI string) (strin
 		return "", err
 	}
 	return string(out), nil
+}
+
+func (s *PullService) MergeCheck(ctx context.Context, repo Repo, ownerDID string, pull Pull) (string, error) {
+	patch, err := s.FetchPullPatch(ctx, pull.URI)
+	if err != nil {
+		return "", err
+	}
+	out, err := NewKnotClient(repo.Knot, WithKnotHTTPClient(s.HTTPClient)).MergeCheck(ctx, &core.RepoMergeCheck_Input{
+		Did:    ownerDID,
+		Name:   repo.Name,
+		Branch: pull.Target,
+		Patch:  patch,
+	})
+	if err != nil {
+		return "", err
+	}
+	if out.Is_conflicted {
+		return "conflicted", nil
+	}
+	if out.Error != nil && *out.Error != "" {
+		return "error: " + *out.Error, nil
+	}
+	return "clean", nil
 }
 
 func (s *PullService) getPullByParts(ctx context.Context, did, collection, rkey string) (*Pull, error) {

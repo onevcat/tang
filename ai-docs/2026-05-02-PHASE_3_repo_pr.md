@@ -35,6 +35,7 @@ Implement repository commands and Tangled pull request workflows: repo view/list
 - Completed: `tang repo create tang-phase3-e2e-20260502143344 --knot knot1.tangled.sh ...` created `at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo/3mkuueutmtb22`, and `tang repo view onev.cat/tang-phase3-e2e-20260502143344` found it. This empty repo is intentionally left as an E2E artifact because no repo delete command exists in scope.
 - Completed: `tang pr list --state all --json=number,title,status,uri` against `tangled.org/core` returned 35 PRs.
 - Completed: `tang pr view 1 --json=title,status,branch` against `tangled.org/core` returned a real PR.
+- Completed: `tang pr view 3mkuu6q672u22 --json=title,mergeable` on the Phase 3 E2E PR returned a merge status field. Live Knot `mergeCheck` returned a 502 decode error for that PR, so the CLI surfaces it as `unknown: ...` instead of silently omitting status.
 - Completed: PR create/diff/comment/close/reopen E2E on `onev.cat/tang`:
   - Created temporary branch `tang-phase3-e2e-20260502143010` from a worktree and pushed it.
   - `tang pr create --base main --head tang-phase3-e2e-20260502143010 --json=uri,title,status,branch` created `at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo.pull/3mkuu6q672u22`.

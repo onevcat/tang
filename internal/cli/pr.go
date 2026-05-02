@@ -78,10 +78,19 @@ func newPRViewCommand(opts *RootOptions) *cobra.Command {
 			if web {
 				return openBrowser(strings.TrimRight(cfg.AppView.URL, "/") + "/" + context.Owner + "/" + context.Name + "/pulls/" + fmt.Sprint(pull.Number))
 			}
+			if repoRecord, err := tangled.NewRepoService(cfg, nil).GetRepo(cmd.Context(), context.Owner, context.Name); err == nil {
+				if ownerDID, _, err := resolveRepoOwnerForCLI(cmd, context.Owner); err == nil {
+					if mergeable, err := service.MergeCheck(cmd.Context(), *repoRecord, ownerDID, pull); err == nil {
+						pull.Mergeable = mergeable
+					} else {
+						pull.Mergeable = "unknown: " + err.Error()
+					}
+				}
+			}
 			if rendered, err := renderJSONIfRequested(cmd, opts, pull); rendered || err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Pull #%d %s\nTitle: %s\nAuthor: %s\nTarget: %s\nSource: %s\nURI: %s\n\n%s\n", pull.Number, pull.Status, pull.Title, pull.Author, pull.Target, pull.Branch, pull.URI, pull.Body)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Pull #%d %s\nTitle: %s\nAuthor: %s\nTarget: %s\nSource: %s\nMerge: %s\nURI: %s\n\n%s\n", pull.Number, pull.Status, pull.Title, pull.Author, pull.Target, pull.Branch, pull.Mergeable, pull.URI, pull.Body)
 			return err
 		},
 	}
