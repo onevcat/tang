@@ -12,7 +12,7 @@ func TestLoadAtReturnsDefaultsWhenMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadAt returned error: %v", err)
 	}
-	if !reflect.DeepEqual(cfg.Knot.Hosts, []string{"tangled.org"}) {
+	if !reflect.DeepEqual(cfg.Knot.Hosts, []string{"knot1.tangled.sh", "tangled.org"}) {
 		t.Fatalf("default knot hosts = %#v", cfg.Knot.Hosts)
 	}
 	if cfg.Constellation.URL != DefaultConstellationURL {

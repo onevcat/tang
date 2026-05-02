@@ -130,7 +130,7 @@ func (s *RepoService) Clone(ctx context.Context, owner, name, dir string) error 
 	if err != nil {
 		return err
 	}
-	return git.Clone(ctx, repo.CloneHTTPS, dir)
+	return git.Clone(ctx, repo.CloneSSH, dir)
 }
 
 func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
@@ -142,6 +142,7 @@ func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
 	if record.RepoDid != nil {
 		repoDID = *record.RepoDid
 	}
+	cloneHost := cloneHostForKnot(record.Knot)
 	return Repo{
 		Owner:       owner,
 		Name:        record.Name,
@@ -151,9 +152,16 @@ func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
 		CreatedAt:   record.CreatedAt,
 		URI:         uri,
 		CID:         cid,
-		CloneSSH:    fmt.Sprintf("git@%s:%s/%s.git", record.Knot, owner, record.Name),
-		CloneHTTPS:  fmt.Sprintf("https://%s/%s/%s", record.Knot, owner, record.Name),
+		CloneSSH:    fmt.Sprintf("git@%s:%s/%s", cloneHost, owner, record.Name),
+		CloneHTTPS:  fmt.Sprintf("https://%s/%s/%s", cloneHost, owner, record.Name),
 	}
+}
+
+func cloneHostForKnot(knot string) string {
+	if knot == "knot1.tangled.sh" {
+		return "tangled.org"
+	}
+	return knot
 }
 
 func resolveOwner(ctx context.Context, owner string) (did, pds string, err error) {

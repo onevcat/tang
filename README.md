@@ -155,6 +155,10 @@ tang repo clone onev.cat/tang-playground
 tang repo clone onev.cat/tang-playground ./playground
 ```
 
+`repo clone` uses the SSH clone URL shown by the Tangled web UI, for example
+`git@tangled.org:onev.cat/tang-playground`. Make sure the matching public key is
+registered in Tangled before cloning private or writable repositories.
+
 Create a repository:
 
 ```sh
@@ -201,6 +205,16 @@ tang issue reopen 1
 Issue arguments may be a displayed number such as `1` or `#1`, a record rkey, or
 a full AT URI.
 
+New records may need a short time before they appear in `issue list`, because
+Tangled discovers cross-record links through Constellation indexing. After
+creating an issue, keep the returned AT URI or rkey and use it directly for
+follow-up commands:
+
+```sh
+tang issue view 3mkuteffbxa2b
+tang issue comment 3mkuteffbxa2b --body "More detail."
+```
+
 ### Work With Pull Requests
 
 List and inspect pull requests:
@@ -241,9 +255,12 @@ Merge a pull request:
 tang pr merge 1 --subject "Merge pull request #1"
 ```
 
-`pr merge` applies the pull request patch locally, commits it, and records the
-pull request as merged on Tangled. Review the worktree before and after merging,
-especially when the pull request contains a large patch.
+`pr merge` sends the pull request patch to the repository's knot through
+Tangled's `sh.tangled.repo.merge` endpoint, then records the pull request as
+merged. It follows the same remote merge mechanism used by the Tangled web UI,
+with a narrower CLI surface: one pull request patch is merged at a time, and
+GitHub-style `--squash` / `--rebase` strategies are not part of the current
+Tangled endpoint.
 
 Pull request arguments may be a displayed number such as `1` or `#1`, a record
 rkey, or a full AT URI.
@@ -272,7 +289,7 @@ Common settings:
 ```sh
 tang config list
 tang config get knot.hosts
-tang config set knot.hosts tangled.org,knot1.tangled.sh
+tang config set knot.hosts knot1.tangled.sh,tangled.org
 tang config set appview.url https://tangled.org
 tang config set constellation.url https://constellation.microcosm.blue
 tang config set remote origin
@@ -339,8 +356,9 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
   writes.
 - Some older pull request records do not contain patch rounds, so `pr diff` and
   `pr checkout` cannot operate on them.
+- SSH clone depends on Tangled's SSH key authorization index. If a freshly added
+  key is rejected, retry after the key appears in `tang ssh-key list`.
 - `repo create` requires a create-capable knot. Pass `--knot` when the default
   service route is not sufficient.
-- `pr merge` is intentionally local-git based. It applies the patch and creates
-  a commit in the current worktree, so the caller remains responsible for
-  reviewing and pushing the result.
+- `pr merge` depends on the repository knot's `sh.tangled.repo.merge` endpoint.
+  It is a remote patch merge, not a local worktree merge.

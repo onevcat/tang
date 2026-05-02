@@ -22,7 +22,7 @@ import (
 	"tangled.org/onev.cat/tang/internal/constellation"
 )
 
-var ErrPatchOnlyCheckout = errors.New("patch-only pull requests cannot be checked out")
+var ErrPatchOnlyCheckout = errors.New("pull request has no source branch; checkout only works for branch-based pull requests")
 
 type Pull struct {
 	Number    int    `json:"number,omitempty"`

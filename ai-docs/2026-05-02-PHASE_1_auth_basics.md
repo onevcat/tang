@@ -46,6 +46,7 @@ Implement the first usable foundation: config store, AT Protocol identity resolu
 
 - The original plan expected `onev.cat` to resolve to `https://tngl.sh`; live DID resolution on 2026-05-02 returned `https://discina.us-west.host.bsky.network`. The implementation does not hardcode either value and uses the DID document result, which is the required behavior for migrated or custom-PDS accounts.
 - The SSH-key E2E initially exposed that this PDS rejects unknown lexicons when `validate=true`. `PDSClient.CreateRecord` now sets `validate=false` for Tangled records, which keeps the CLI usable across PDS implementations that do not know Tangled schemas locally.
+- Follow-up on 2026-05-03: default `knot.hosts` now puts the create-capable `knot1.tangled.sh` first while keeping `tangled.org` as a recognized host for existing remotes.
 
 ## Completion
 

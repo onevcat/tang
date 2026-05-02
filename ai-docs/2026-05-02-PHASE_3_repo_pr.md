@@ -54,6 +54,8 @@ Implement repository commands and Tangled pull request workflows: repo view/list
 - `repo create` without `--knot` currently tries the configured default `tangled.org`; live validation returned a 404 HTML response for `sh.tangled.repo.create`. The real hosted create-capable knot for this account was `knot1.tangled.sh`, so the successful validation used `--knot knot1.tangled.sh`. This is a real deployment/config distinction, not a PDS hardcoding issue.
 - Some old `tangled.org/core` PR records do not contain `rounds[]`; `tang pr diff` correctly reports `pull has no rounds` for those patchless/legacy records.
 - `pr merge` does not expose `--squash`, `--rebase`, or `--merge`, matching the current Tangled merge endpoint.
+- Follow-up on 2026-05-03: `knot1.tangled.sh` is now the first default knot host, so `repo create` uses the create-capable knot by default. `tangled.org` remains in the default host list for AppView-style and existing remote URLs.
+- Follow-up on 2026-05-03: Tangled web maps repos whose record knot is `knot1.tangled.sh` to hosted clone URLs on `tangled.org`. After refreshing the account SSH key, `git clone git@tangled.org:onev.cat/tang-playground` succeeded, so `repo clone` now uses the web-equivalent SSH clone URL.
 
 ## Completion
 

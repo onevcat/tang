@@ -318,6 +318,10 @@ func newPRMergeCommand() *cobra.Command {
 			if message == "" {
 				message = pull.Title
 			}
+			commitBody := body
+			if commitBody == "" {
+				commitBody = pull.Body
+			}
 			author := session.Handle
 			if err := tangled.NewKnotClient(repoRecord.Knot, tangled.WithServiceAuthToken(token)).Merge(cmd.Context(), &core.RepoMerge_Input{
 				Did:           ownerDID,
@@ -325,7 +329,7 @@ func newPRMergeCommand() *cobra.Command {
 				Branch:        pull.Target,
 				Patch:         patch,
 				CommitMessage: &message,
-				CommitBody:    optionalCLIString(body),
+				CommitBody:    optionalCLIString(commitBody),
 				AuthorName:    &author,
 			}); err != nil {
 				return err

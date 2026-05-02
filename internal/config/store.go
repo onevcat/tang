@@ -13,7 +13,8 @@ import (
 const (
 	DefaultAppViewURL       = "https://tangled.org"
 	DefaultConstellationURL = "https://constellation.microcosm.blue"
-	DefaultKnotHost         = "tangled.org"
+	DefaultKnotHost         = "knot1.tangled.sh"
+	LegacyKnotHost          = "tangled.org"
 )
 
 var ErrUnsupportedKey = errors.New("unsupported config key")
@@ -41,7 +42,7 @@ type AppViewConfig struct {
 
 func Defaults() *Config {
 	return &Config{
-		Knot:          KnotConfig{Hosts: []string{DefaultKnotHost}},
+		Knot:          KnotConfig{Hosts: []string{DefaultKnotHost, LegacyKnotHost}},
 		Constellation: ConstellationConfig{URL: DefaultConstellationURL},
 		AppView:       AppViewConfig{URL: DefaultAppViewURL},
 	}
@@ -157,7 +158,7 @@ func (c *Config) Path() string {
 
 func (c *Config) applyDefaults() {
 	if len(c.Knot.Hosts) == 0 {
-		c.Knot.Hosts = []string{DefaultKnotHost}
+		c.Knot.Hosts = []string{DefaultKnotHost, LegacyKnotHost}
 	}
 	if c.Constellation.URL == "" {
 		c.Constellation.URL = DefaultConstellationURL
