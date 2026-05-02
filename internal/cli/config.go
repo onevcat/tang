@@ -74,7 +74,7 @@ func newConfigListCommand(opts *RootOptions) *cobra.Command {
 			if rendered, err := renderJSONIfRequested(cmd, opts, values); rendered || err != nil {
 				return err
 			}
-			for _, key := range []string{"knot.hosts", "constellation.url", "appview.url", "remote"} {
+			for _, key := range []string{"knot.hosts", "constellation.url", "appview.url", "clone.protocol", "remote"} {
 				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s=%s\n", key, formatConfigValue(values[key])); err != nil {
 					return err
 				}

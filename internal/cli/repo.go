@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"tangled.org/onev.cat/tang/internal/auth"
 	"tangled.org/onev.cat/tang/internal/config"
+	tanggit "tangled.org/onev.cat/tang/internal/git"
 	localrepo "tangled.org/onev.cat/tang/internal/repo"
 	"tangled.org/onev.cat/tang/internal/tangled"
 )
@@ -123,17 +124,20 @@ func newRepoCreateCommand(opts *RootOptions) *cobra.Command {
 
 func newRepoCloneCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "clone <owner/name> [dir]",
+		Use:   "clone <owner/name|url> [dir]",
 		Short: "Clone a repository",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			owner, name, err := splitOwnerRepo(args[0])
-			if err != nil {
-				return err
-			}
 			dir := ""
 			if len(args) > 1 {
 				dir = args[1]
+			}
+			if isExplicitCloneURL(args[0]) {
+				return tanggit.Clone(cmd.Context(), args[0], dir)
+			}
+			owner, name, err := splitOwnerRepo(args[0])
+			if err != nil {
+				return err
 			}
 			cfg, err := config.Load()
 			if err != nil {
@@ -165,4 +169,14 @@ func splitOwnerRepo(input string) (string, string, error) {
 		return "", "", fmt.Errorf("repository must be OWNER/NAME")
 	}
 	return parts[0], parts[1], nil
+}
+
+func isExplicitCloneURL(input string) bool {
+	if strings.Contains(input, "://") {
+		return true
+	}
+	at := strings.Index(input, "@")
+	colon := strings.Index(input, ":")
+	slash := strings.Index(input, "/")
+	return at > 0 && colon > at && (slash == -1 || colon < slash)
 }

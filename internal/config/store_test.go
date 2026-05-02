@@ -15,6 +15,9 @@ func TestLoadAtReturnsDefaultsWhenMissing(t *testing.T) {
 	if !reflect.DeepEqual(cfg.Knot.Hosts, []string{"knot1.tangled.sh", "tangled.org"}) {
 		t.Fatalf("default knot hosts = %#v", cfg.Knot.Hosts)
 	}
+	if cfg.Clone.Protocol != "https" {
+		t.Fatalf("default clone protocol = %q", cfg.Clone.Protocol)
+	}
 	if cfg.Constellation.URL != DefaultConstellationURL {
 		t.Fatalf("default constellation URL = %q", cfg.Constellation.URL)
 	}
@@ -35,6 +38,9 @@ func TestSetAndReloadSupportedKeys(t *testing.T) {
 	if err := cfg.Set("constellation.url", "https://constellation.example.com"); err != nil {
 		t.Fatalf("Set constellation.url returned error: %v", err)
 	}
+	if err := cfg.Set("clone.protocol", "ssh"); err != nil {
+		t.Fatalf("Set clone.protocol returned error: %v", err)
+	}
 
 	reloaded, err := LoadAt(path)
 	if err != nil {
@@ -45,6 +51,19 @@ func TestSetAndReloadSupportedKeys(t *testing.T) {
 	}
 	if reloaded.Constellation.URL != "https://constellation.example.com" {
 		t.Fatalf("reloaded constellation URL = %q", reloaded.Constellation.URL)
+	}
+	if reloaded.Clone.Protocol != "ssh" {
+		t.Fatalf("reloaded clone protocol = %q", reloaded.Clone.Protocol)
+	}
+}
+
+func TestCloneProtocolValidation(t *testing.T) {
+	cfg, err := LoadAt(filepath.Join(t.TempDir(), "config.toml"))
+	if err != nil {
+		t.Fatalf("LoadAt returned error: %v", err)
+	}
+	if err := cfg.Set("clone.protocol", "git"); !errors.Is(err, ErrUnsupportedValue) {
+		t.Fatalf("Set clone.protocol invalid error = %v", err)
 	}
 }
 

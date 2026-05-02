@@ -48,6 +48,9 @@ Implement repository commands and Tangled pull request workflows: repo view/list
   - Created PR `at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo.pull/3mkuuamwfj322`.
   - `tang pr merge 3mkuuamwfj322 --subject "Merge Phase 3 E2E"` succeeded.
   - Deleted both temporary remote branches afterward.
+- Completed follow-up on 2026-05-03: `clone.protocol` default E2E used an isolated config directory, confirmed `clone.protocol=https`, cloned `onev.cat/tang-playground`, and observed origin `https://tangled.org/onev.cat/tang-playground`.
+- Completed follow-up on 2026-05-03: `clone.protocol=ssh` E2E used an isolated config directory, cloned `onev.cat/tang-playground`, and observed origin `git@tangled.org:onev.cat/tang-playground`.
+- Completed follow-up on 2026-05-03: explicit URL E2E set `clone.protocol=ssh`, cloned `https://tangled.org/onev.cat/tang-playground`, and confirmed the explicit HTTPS URL was preserved.
 
 ## Notes
 
@@ -56,6 +59,7 @@ Implement repository commands and Tangled pull request workflows: repo view/list
 - `pr merge` does not expose `--squash`, `--rebase`, or `--merge`, matching the current Tangled merge endpoint.
 - Follow-up on 2026-05-03: `knot1.tangled.sh` is now the first default knot host, so `repo create` uses the create-capable knot by default. `tangled.org` remains in the default host list for AppView-style and existing remote URLs.
 - Follow-up on 2026-05-03: Tangled web maps repos whose record knot is `knot1.tangled.sh` to hosted clone URLs on `tangled.org`. After refreshing the account SSH key, `git clone git@tangled.org:onev.cat/tang-playground` succeeded, so `repo clone` now uses the web-equivalent SSH clone URL.
+- Follow-up on 2026-05-03: `repo clone` now follows `clone.protocol` (`https` by default, `ssh` optional) for `OWNER/REPO` inputs, while explicit clone URLs are passed directly to `git clone`. Unit tests cover config validation, hosted clone URL mapping, protocol selection, and explicit URL detection.
 
 ## Completion
 

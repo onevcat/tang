@@ -18,11 +18,13 @@ const (
 )
 
 var ErrUnsupportedKey = errors.New("unsupported config key")
+var ErrUnsupportedValue = errors.New("unsupported config value")
 
 type Config struct {
 	Knot          KnotConfig          `toml:"knot" json:"knot"`
 	Constellation ConstellationConfig `toml:"constellation" json:"constellation"`
 	AppView       AppViewConfig       `toml:"appview" json:"appview"`
+	Clone         CloneConfig         `toml:"clone" json:"clone"`
 	Remote        string              `toml:"remote,omitempty" json:"remote,omitempty"`
 
 	path string
@@ -40,11 +42,16 @@ type AppViewConfig struct {
 	URL string `toml:"url" json:"url"`
 }
 
+type CloneConfig struct {
+	Protocol string `toml:"protocol" json:"protocol"`
+}
+
 func Defaults() *Config {
 	return &Config{
 		Knot:          KnotConfig{Hosts: []string{DefaultKnotHost, LegacyKnotHost}},
 		Constellation: ConstellationConfig{URL: DefaultConstellationURL},
 		AppView:       AppViewConfig{URL: DefaultAppViewURL},
+		Clone:         CloneConfig{Protocol: "https"},
 	}
 }
 
@@ -90,6 +97,8 @@ func (c *Config) Get(key string) (any, error) {
 		return c.Constellation.URL, nil
 	case "appview.url":
 		return c.AppView.URL, nil
+	case "clone.protocol":
+		return c.Clone.Protocol, nil
 	case "remote":
 		return c.Remote, nil
 	case "pds.url":
@@ -111,6 +120,12 @@ func (c *Config) Set(key string, value string) error {
 		c.Constellation.URL = strings.TrimSpace(value)
 	case "appview.url":
 		c.AppView.URL = strings.TrimSpace(value)
+	case "clone.protocol":
+		protocol, err := normalizeCloneProtocol(value)
+		if err != nil {
+			return err
+		}
+		c.Clone.Protocol = protocol
 	case "remote":
 		c.Remote = strings.TrimSpace(value)
 	case "pds.url":
@@ -130,6 +145,7 @@ func (c *Config) List() map[string]any {
 		"knot.hosts":        append([]string(nil), c.Knot.Hosts...),
 		"constellation.url": constellationURL,
 		"appview.url":       c.AppView.URL,
+		"clone.protocol":    c.Clone.Protocol,
 		"remote":            c.Remote,
 	}
 }
@@ -166,6 +182,9 @@ func (c *Config) applyDefaults() {
 	if c.AppView.URL == "" {
 		c.AppView.URL = DefaultAppViewURL
 	}
+	if c.Clone.Protocol == "" {
+		c.Clone.Protocol = "https"
+	}
 }
 
 func defaultPath() (string, error) {
@@ -195,4 +214,14 @@ func splitCSV(value string) []string {
 		out = append(out, item)
 	}
 	return out
+}
+
+func normalizeCloneProtocol(value string) (string, error) {
+	protocol := strings.ToLower(strings.TrimSpace(value))
+	switch protocol {
+	case "ssh", "https":
+		return protocol, nil
+	default:
+		return "", fmt.Errorf("%w: clone.protocol must be ssh or https", ErrUnsupportedValue)
+	}
 }

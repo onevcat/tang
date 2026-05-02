@@ -130,7 +130,26 @@ func (s *RepoService) Clone(ctx context.Context, owner, name, dir string) error 
 	if err != nil {
 		return err
 	}
-	return git.Clone(ctx, repo.CloneSSH, dir)
+	url, err := s.CloneURL(*repo)
+	if err != nil {
+		return err
+	}
+	return git.Clone(ctx, url, dir)
+}
+
+func (s *RepoService) CloneURL(repo Repo) (string, error) {
+	protocol := "https"
+	if s.Config != nil && s.Config.Clone.Protocol != "" {
+		protocol = s.Config.Clone.Protocol
+	}
+	switch protocol {
+	case "ssh":
+		return repo.CloneSSH, nil
+	case "https":
+		return repo.CloneHTTPS, nil
+	default:
+		return "", fmt.Errorf("%w: clone.protocol must be ssh or https", config.ErrUnsupportedValue)
+	}
 }
 
 func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {

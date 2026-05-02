@@ -153,11 +153,21 @@ Clone a repository:
 ```sh
 tang repo clone onev.cat/tang-playground
 tang repo clone onev.cat/tang-playground ./playground
+tang repo clone git@tangled.org:onev.cat/tang-playground ./playground
 ```
 
-`repo clone` uses the SSH clone URL shown by the Tangled web UI, for example
-`git@tangled.org:onev.cat/tang-playground`. Make sure the matching public key is
-registered in Tangled before cloning private or writable repositories.
+When the repository argument is `OWNER/REPO`, `repo clone` chooses the clone URL
+from `clone.protocol`. The default is `https`, matching GitHub CLI's configured
+protocol model. Set it to `ssh` when you want Tangled's SSH clone URL:
+
+```sh
+tang config get clone.protocol
+tang config set clone.protocol ssh
+tang config set clone.protocol https
+```
+
+When the repository argument is an explicit clone URL, `repo clone` passes it
+directly to `git clone` and does not consult `clone.protocol`.
 
 Create a repository:
 
@@ -290,6 +300,8 @@ Common settings:
 tang config list
 tang config get knot.hosts
 tang config set knot.hosts knot1.tangled.sh,tangled.org
+tang config get clone.protocol
+tang config set clone.protocol ssh
 tang config set appview.url https://tangled.org
 tang config set constellation.url https://constellation.microcosm.blue
 tang config set remote origin
@@ -357,7 +369,8 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
 - Some older pull request records do not contain patch rounds, so `pr diff` and
   `pr checkout` cannot operate on them.
 - SSH clone depends on Tangled's SSH key authorization index. If a freshly added
-  key is rejected, retry after the key appears in `tang ssh-key list`.
+  key is rejected, retry after the key appears in `tang ssh-key list`, or use
+  the default HTTPS clone protocol.
 - `repo create` requires a create-capable knot. Pass `--knot` when the default
   service route is not sufficient.
 - `pr merge` depends on the repository knot's `sh.tangled.repo.merge` endpoint.
