@@ -34,12 +34,8 @@ func Resolve(ctx context.Context, cwd string, cfg *config.Config) (*RepositoryCo
 
 func ResolveSelector(selector string, cfg *config.Config) (*RepositoryContext, error) {
 	selector = strings.Trim(strings.TrimSpace(selector), "/")
-	if strings.HasPrefix(selector, "https://") {
-		selector = strings.TrimPrefix(selector, "https://")
-	}
-	if strings.HasPrefix(selector, "http://") {
-		selector = strings.TrimPrefix(selector, "http://")
-	}
+	selector = strings.TrimPrefix(selector, "https://")
+	selector = strings.TrimPrefix(selector, "http://")
 	parts := strings.Split(selector, "/")
 	knot := defaultKnotHost(cfg)
 	var owner, name string
