@@ -365,7 +365,18 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
 ## Known Limitations
 
 - Tangled AppView and Constellation indexing may lag behind successful PDS
-  writes.
+  writes. For newly created records, keep the returned AT URI or rkey and use it
+  directly while indexes catch up.
+- AppView is not yet a complete projection of Tangled's ATProto records. In
+  particular, protocol-level issue state records
+  (`sh.tangled.repo.issue.state`) and pull request status records
+  (`sh.tangled.repo.pull.status`) can be visible to `tang` while the web UI
+  still shows stale state. Pull request records themselves may also fail to
+  appear in AppView even when they exist on the author's PDS and are indexed by
+  Constellation. Track upstream progress in
+  [tangled.org/core#462](https://tangled.org/tangled.org/core/issues/462),
+  [tangled.org/core#282](https://tangled.org/tangled.org/core/issues/282), and
+  [the pull status ingestion record](https://pdsls.dev/at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo.issue/3mkuyuh6t3l2k).
 - Some older pull request records do not contain patch rounds, so `pr diff` and
   `pr checkout` cannot operate on them.
 - SSH clone depends on Tangled's SSH key authorization index. If a freshly added
