@@ -13,6 +13,13 @@ The tool talks to Tangled through its AT Protocol data model:
 - Repository and pull request operations use the Tangled AppView, Constellation,
   and knot APIs as needed.
 
+> [!WARNING]
+>
+> **Project status:** `tang` is early and experimental software.
+> I use it for my own Tangled repositories and daily workflows, but it is still
+> new and relatively unproven. See [Known Limitations](#known-limitations)
+> before relying on it for critical work.
+
 ## Status
 
 This project is usable for the implemented workflows, but still early. The
@@ -393,6 +400,9 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
   Constellation. Track upstream progress in
   [tangled.org/core#462](https://tangled.org/tangled.org/core/issues/462),
   [tangled.org/core#282](https://tangled.org/tangled.org/core/issues/282), and
+  [tangled.org/core#517](https://tangled.org/tangled.org/core/issues/517) for
+  status records that are not synchronized into AppView; this is an upstream
+  AppView projection issue rather than a `tang` CLI state bug. Also see
   [the pull status ingestion record](https://pdsls.dev/at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo.issue/3mkuyuh6t3l2k).
 - Some older pull request records do not contain patch rounds, so `pr diff` and
   `pr checkout` cannot operate on them.
