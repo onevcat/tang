@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "tangled.org/core/api/tangled"
-	"tangled.org/onev.cat/tang/internal/atproto"
 	"tangled.org/onev.cat/tang/internal/auth"
 	"tangled.org/onev.cat/tang/internal/config"
 	"tangled.org/onev.cat/tang/internal/constellation"
@@ -196,7 +195,7 @@ func (s *IssueService) GetIssueState(ctx context.Context, issueURI string) (stri
 		return backlinks.Records[i].RKey < backlinks.Records[j].RKey
 	})
 	latest := backlinks.Records[len(backlinks.Records)-1]
-	ident, err := atproto.ResolveDID(ctx, latest.DID)
+	ident, err := resolveDIDFunc(ctx, latest.DID)
 	if err != nil {
 		return "open", err
 	}
@@ -222,7 +221,7 @@ func (s *IssueService) ListComments(ctx context.Context, issueURI string) ([]Com
 	}
 	comments := make([]Comment, 0, len(backlinks.Records))
 	for _, link := range backlinks.Records {
-		ident, err := atproto.ResolveDID(ctx, link.DID)
+		ident, err := resolveDIDFunc(ctx, link.DID)
 		if err != nil {
 			continue
 		}
@@ -285,7 +284,7 @@ func ResolveIssueIdentifier(input string, issues []Issue) (Issue, error) {
 }
 
 func (s *IssueService) getIssueByParts(ctx context.Context, did, collection, rkey string) (*Issue, error) {
-	ident, err := atproto.ResolveDID(ctx, did)
+	ident, err := resolveDIDFunc(ctx, did)
 	if err != nil {
 		return nil, err
 	}

@@ -16,7 +16,6 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	core "tangled.org/core/api/tangled"
-	"tangled.org/onev.cat/tang/internal/atproto"
 	"tangled.org/onev.cat/tang/internal/auth"
 	"tangled.org/onev.cat/tang/internal/config"
 	"tangled.org/onev.cat/tang/internal/constellation"
@@ -208,7 +207,7 @@ func (s *PullService) GetPullStatus(ctx context.Context, pullURI string) (string
 	}
 	sort.Slice(backlinks.Records, func(i, j int) bool { return backlinks.Records[i].RKey < backlinks.Records[j].RKey })
 	latest := backlinks.Records[len(backlinks.Records)-1]
-	ident, err := atproto.ResolveDID(ctx, latest.DID)
+	ident, err := resolveDIDFunc(ctx, latest.DID)
 	if err != nil {
 		return "open", err
 	}
@@ -248,7 +247,7 @@ func (s *PullService) FetchPullPatch(ctx context.Context, pullURI string) (strin
 		return "", fmt.Errorf("pull has no rounds")
 	}
 	latest := pull.record.Rounds[len(pull.record.Rounds)-1]
-	ident, err := atproto.ResolveDID(ctx, pull.author)
+	ident, err := resolveDIDFunc(ctx, pull.author)
 	if err != nil {
 		return "", err
 	}
@@ -315,7 +314,7 @@ func (s *PullService) rawPull(ctx context.Context, uri string) (*rawPull, error)
 }
 
 func (s *PullService) getRawPullByParts(ctx context.Context, did, collection, rkey string) (*rawPull, error) {
-	ident, err := atproto.ResolveDID(ctx, did)
+	ident, err := resolveDIDFunc(ctx, did)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	core "tangled.org/core/api/tangled"
-	"tangled.org/onev.cat/tang/internal/atproto"
 	"tangled.org/onev.cat/tang/internal/repo"
 )
 
@@ -33,14 +32,14 @@ func BuildRepoATURI(ctx context.Context, context *repo.RepositoryContext) (strin
 	ownerDID := context.Owner
 	pds := ""
 	if !strings.HasPrefix(ownerDID, "did:") {
-		ident, err := atproto.ResolveHandle(ctx, ownerDID)
+		ident, err := resolveHandleFunc(ctx, ownerDID)
 		if err != nil {
 			return "", err
 		}
 		ownerDID = ident.DID
 		pds = ident.PDS
 	} else {
-		ident, err := atproto.ResolveDID(ctx, ownerDID)
+		ident, err := resolveDIDFunc(ctx, ownerDID)
 		if err != nil {
 			return "", err
 		}

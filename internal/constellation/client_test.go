@@ -39,6 +39,35 @@ func TestGetBacklinksMapsLinkingRecords(t *testing.T) {
 	}
 }
 
+func TestNewClientUsesEnvironmentAndDefaults(t *testing.T) {
+	t.Setenv("TANG_CONSTELLATION_URL", "https://env.example.com/")
+	client := NewClient("", nil)
+	if client.BaseURL != "https://env.example.com" || client.HTTPClient == nil {
+		t.Fatalf("client = %#v", client)
+	}
+	t.Setenv("TANG_CONSTELLATION_URL", "")
+	client = NewClient("", nil)
+	if client.BaseURL == "" || client.HTTPClient == nil {
+		t.Fatalf("default client = %#v", client)
+	}
+}
+
+func TestGetBacklinksRejectsBadURLAndHTTPError(t *testing.T) {
+	client := NewClient("://bad-url", http.DefaultClient)
+	if _, err := client.GetBacklinks(context.Background(), "target", "collection", ".path", 10, ""); err == nil {
+		t.Fatal("expected bad URL error")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusBadGateway)
+	}))
+	t.Cleanup(server.Close)
+	client = NewClient(server.URL, server.Client())
+	if _, err := client.GetBacklinks(context.Background(), "target", "collection", ".path", 10, ""); err == nil {
+		t.Fatal("expected HTTP status error")
+	}
+}
+
 func containsQuery(query, part string) bool {
 	for _, item := range splitQuery(query) {
 		if item == part {

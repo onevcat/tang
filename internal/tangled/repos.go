@@ -9,7 +9,6 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	core "tangled.org/core/api/tangled"
-	"tangled.org/onev.cat/tang/internal/atproto"
 	"tangled.org/onev.cat/tang/internal/auth"
 	"tangled.org/onev.cat/tang/internal/config"
 	"tangled.org/onev.cat/tang/internal/git"
@@ -185,13 +184,13 @@ func cloneHostForKnot(knot string) string {
 
 func resolveOwner(ctx context.Context, owner string) (did, pds string, err error) {
 	if strings.HasPrefix(owner, "did:") {
-		ident, err := atproto.ResolveDID(ctx, owner)
+		ident, err := resolveDIDFunc(ctx, owner)
 		if err != nil {
 			return "", "", err
 		}
 		return owner, ident.PDS, nil
 	}
-	ident, err := atproto.ResolveHandle(ctx, owner)
+	ident, err := resolveHandleFunc(ctx, owner)
 	if err != nil {
 		return "", "", err
 	}

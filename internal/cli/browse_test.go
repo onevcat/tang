@@ -19,3 +19,10 @@ func TestBrowseURLs(t *testing.T) {
 		t.Fatalf("issueURL = %q", got)
 	}
 }
+
+func TestOpenBrowserReportsStartError(t *testing.T) {
+	t.Setenv("PATH", "")
+	if err := openBrowser("https://app.example.com"); err == nil {
+		t.Fatal("expected browser start error")
+	}
+}

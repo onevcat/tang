@@ -114,7 +114,7 @@ func newIssueViewCommand(opts *RootOptions) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return openBrowser(issueURL(cfg, context, issue))
+				return openBrowserForCLI(issueURL(cfg, context, issue))
 			}
 			comments, _ := service.ListComments(cmd.Context(), issue.URI)
 			if rendered, err := renderJSONIfRequested(cmd, opts, map[string]any{"issue": issue, "comments": comments}); rendered || err != nil {

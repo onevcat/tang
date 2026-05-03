@@ -17,6 +17,11 @@ import (
 	"tangled.org/onev.cat/tang/internal/tangled"
 )
 
+var (
+	resolveDIDForCLI    = atproto.ResolveDID
+	resolveHandleForCLI = atproto.ResolveHandle
+)
+
 func newPRCommand(opts *RootOptions) *cobra.Command {
 	cmd := &cobra.Command{Use: "pr", Short: "Manage Tangled pull requests"}
 	cmd.AddCommand(newPRListCommand(opts))
@@ -76,7 +81,7 @@ func newPRViewCommand(opts *RootOptions) *cobra.Command {
 				return err
 			}
 			if web {
-				return openBrowser(strings.TrimRight(cfg.AppView.URL, "/") + "/" + context.Owner + "/" + context.Name + "/pulls/" + fmt.Sprint(pull.Number))
+				return openBrowserForCLI(strings.TrimRight(cfg.AppView.URL, "/") + "/" + context.Owner + "/" + context.Name + "/pulls/" + fmt.Sprint(pull.Number))
 			}
 			if repoRecord, err := tangled.NewRepoService(cfg, nil).GetRepo(cmd.Context(), context.Owner, context.Name); err == nil {
 				if ownerDID, _, err := resolveRepoOwnerForCLI(cmd, context.Owner); err == nil {
@@ -390,13 +395,13 @@ func resolveRepoOwnerForCLI(cmd *cobra.Command, owner string) (string, string, e
 
 func tangledResolveOwner(cmd *cobra.Command, owner string) (string, string, error) {
 	if strings.HasPrefix(owner, "did:") {
-		ident, err := atproto.ResolveDID(cmd.Context(), owner)
+		ident, err := resolveDIDForCLI(cmd.Context(), owner)
 		if err != nil {
 			return "", "", err
 		}
 		return owner, ident.PDS, nil
 	}
-	ident, err := atproto.ResolveHandle(cmd.Context(), owner)
+	ident, err := resolveHandleForCLI(cmd.Context(), owner)
 	if err != nil {
 		return "", "", err
 	}

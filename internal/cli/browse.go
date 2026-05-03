@@ -23,7 +23,7 @@ func newBrowseCommand(opts *RootOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return openBrowser(repoURL(cfg, context))
+			return openBrowserForCLI(repoURL(cfg, context))
 		},
 	}
 	cmd.AddCommand(&cobra.Command{
@@ -48,7 +48,7 @@ func newBrowseCommand(opts *RootOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return openBrowser(issueURL(cfg, context, issue))
+			return openBrowserForCLI(issueURL(cfg, context, issue))
 		},
 	})
 	_ = opts
