@@ -246,14 +246,14 @@ func TestRepoCloneCommandAcceptsExplicitLocalURL(t *testing.T) {
 	if err := executeForTest(cmd, &out, "repo", "clone", "file://"+origin, target); err != nil {
 		t.Fatalf("repo clone failed: %v", err)
 	}
-	if _, err := exec.Command("git", "-C", target, "status").Output(); err != nil {
+	if _, err := exec.Command("git", "-C", target, "status").Output(); err != nil { // #nosec G204 -- fixed git binary with test-owned temp path.
 		t.Fatalf("cloned repo status error = %v", err)
 	}
 }
 
 func runGitForCLITest(t *testing.T, cwd string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) // #nosec G204 -- fixed git binary with test-controlled arguments.
 	cmd.Dir = cwd
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %s: %v", args, out, err)

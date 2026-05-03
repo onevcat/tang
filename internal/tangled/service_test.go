@@ -621,7 +621,9 @@ func newFakePDSServer(t *testing.T, records map[string]fakeRecord, opts ...fakeP
 				http.Error(w, "not found", http.StatusNotFound)
 				return
 			}
-			w.Write(recordJSON(t, record))
+			if _, err := w.Write(recordJSON(t, record)); err != nil {
+				t.Fatalf("Write response error = %v", err)
+			}
 		case "/xrpc/com.atproto.repo.createRecord":
 			var input struct {
 				Collection string          `json:"collection"`

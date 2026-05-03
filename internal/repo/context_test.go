@@ -130,7 +130,7 @@ func TestResolveUsesLocalGitRemote(t *testing.T) {
 
 func runGit(t *testing.T, cwd string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) // #nosec G204 -- fixed git binary with test-controlled arguments.
 	cmd.Dir = cwd
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %s: %v", args, out, err)

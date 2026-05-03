@@ -119,7 +119,7 @@ func TestCloneUsesLocalRepository(t *testing.T) {
 	if err := Clone(context.Background(), origin, target); err != nil {
 		t.Fatalf("Clone error = %v", err)
 	}
-	if _, err := exec.Command("git", "-C", target, "status").Output(); err != nil {
+	if _, err := exec.Command("git", "-C", target, "status").Output(); err != nil { // #nosec G204 -- fixed git binary with test-owned temp path.
 		t.Fatalf("cloned repo status error = %v", err)
 	}
 }
@@ -172,7 +172,7 @@ func (r *fakeRunner) Run(_ context.Context, _ string, args ...string) ([]byte, e
 
 func runGit(t *testing.T, cwd string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) // #nosec G204 -- fixed git binary with test-controlled arguments.
 	cmd.Dir = cwd
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v failed: %s: %v", args, out, err)
