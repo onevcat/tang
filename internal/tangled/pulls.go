@@ -7,8 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +28,7 @@ var ErrPatchOnlyCheckout = errors.New("pull request has no source branch; checko
 
 type Pull struct {
 	Number    int    `json:"number,omitempty"`
+	RKey      string `json:"rkey,omitempty"`
 	Title     string `json:"title"`
 	Body      string `json:"body,omitempty"`
 	Status    string `json:"status"`
@@ -179,7 +183,7 @@ func (s *PullService) CreatePull(ctx context.Context, session *auth.Session, opt
 	if err != nil {
 		return nil, err
 	}
-	return &Pull{Title: title, Body: body, Status: "open", Author: session.DID, CreatedAt: now, URI: out.Uri, CID: out.Cid, Target: opts.BaseBranch, Source: repoDID, Branch: opts.HeadBranch}, nil
+	return &Pull{Title: title, Body: body, Status: "open", Author: session.DID, CreatedAt: now, URI: out.Uri, RKey: rkey, CID: out.Cid, Target: opts.BaseBranch, Source: repoDID, Branch: opts.HeadBranch}, nil
 }
 
 func (s *PullService) GetPull(ctx context.Context, pullURI string) (*Pull, error) {
@@ -188,6 +192,42 @@ func (s *PullService) GetPull(ctx context.Context, pullURI string) (*Pull, error
 		return nil, err
 	}
 	return s.getPullByParts(ctx, parsed.DID, parsed.Collection, parsed.RKey)
+}
+
+func (s *PullService) ResolvePullNumber(ctx context.Context, appViewURL, owner, repoName string, number int) (*Pull, error) {
+	if number < 1 {
+		return nil, fmt.Errorf("pull number must be greater than 0")
+	}
+	target, err := url.JoinPath(strings.TrimRight(appViewURL, "/"), owner, repoName, "pulls", strconv.Itoa(number))
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("pull #%d not found in AppView: %s", number, resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	match := appViewPullATURIPattern.FindSubmatch(body)
+	if match == nil {
+		return nil, fmt.Errorf("pull #%d AppView page has no pull AT URI", number)
+	}
+	pull, err := s.GetPull(ctx, html.UnescapeString(string(match[1])))
+	if err != nil {
+		return nil, err
+	}
+	pull.Number = number
+	return pull, nil
 }
 
 func (s *PullService) SetPullStatus(ctx context.Context, session *auth.Session, pullURI, status string) error {
@@ -341,7 +381,7 @@ func pullFromRecord(author, uri, cid string, record *core.RepoPull) *Pull {
 	if record.Body != nil {
 		body = *record.Body
 	}
-	pull := &Pull{Title: record.Title, Body: body, Status: "open", Author: author, CreatedAt: record.CreatedAt, URI: uri, CID: cid}
+	pull := &Pull{Title: record.Title, Body: body, Status: "open", Author: author, CreatedAt: record.CreatedAt, URI: uri, RKey: RKeyFromURI(uri), CID: cid}
 	if record.Target != nil {
 		pull.Target = record.Target.Branch
 	}
@@ -357,28 +397,36 @@ func pullFromRecord(author, uri, cid string, record *core.RepoPull) *Pull {
 func ResolvePullIdentifier(input string, pulls []Pull) (Pull, error) {
 	normalized := strings.TrimPrefix(input, "#")
 	if n, err := strconv.Atoi(normalized); err == nil {
-		assignPullNumbers(pulls)
-		for _, pull := range pulls {
-			if pull.Number == n {
-				return pull, nil
-			}
+		if n < 1 {
+			return Pull{}, fmt.Errorf("pull number must be greater than 0")
 		}
-		return Pull{}, fmt.Errorf("pull #%d not found", n)
+		return Pull{}, fmt.Errorf("pull #%d requires AppView resolution", n)
 	}
 	for _, pull := range pulls {
 		if RKeyFromURI(pull.URI) == normalized || pull.URI == input {
 			return pull, nil
 		}
 	}
+	var matches []Pull
+	for _, pull := range pulls {
+		if normalized != "" && strings.HasPrefix(RKeyFromURI(pull.URI), normalized) {
+			matches = append(matches, pull)
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		return Pull{}, fmt.Errorf("pull %q is ambiguous; matched %d pulls", input, len(matches))
+	}
 	return Pull{}, fmt.Errorf("pull %q not found", input)
 }
 
 func assignPullNumbers(pulls []Pull) {
 	sort.Slice(pulls, func(i, j int) bool { return pulls[i].CreatedAt < pulls[j].CreatedAt })
-	for i := range pulls {
-		pulls[i].Number = i + 1
-	}
 }
+
+var appViewPullATURIPattern = regexp.MustCompile(`data-aturi=["']([^"']+/sh\.tangled\.repo\.pull/[^"']+)["']`)
 
 func fillTitleBodyFromPatch(patch, existingBody string) (string, string) {
 	title := ""

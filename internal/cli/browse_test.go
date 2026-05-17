@@ -18,6 +18,9 @@ func TestBrowseURLs(t *testing.T) {
 	if got := issueURL(cfg, context, issue); got != "https://tangled.org/onev.cat/tang-playground/issues/12" {
 		t.Fatalf("issueURL = %q", got)
 	}
+	if got := issueURL(cfg, context, tangled.Issue{RKey: "3abc"}); got != "" {
+		t.Fatalf("issueURL without number = %q", got)
+	}
 }
 
 func TestOpenBrowserReportsStartError(t *testing.T) {

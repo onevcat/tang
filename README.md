@@ -122,6 +122,12 @@ tang issue list -R onev.cat/tang
 tang pr view 1 -R tangled.org/core
 ```
 
+Numeric issue and pull request arguments match Tangled AppView URLs. For
+example, `tang issue view 5` resolves the same object as
+`/OWNER/REPO/issues/5`; `tang pr view 3` resolves `/OWNER/REPO/pulls/3`.
+Use `--atproto` when you need to inspect raw PDS/Constellation records that
+may not be projected by AppView.
+
 The selector format is `[HOST/]OWNER/REPO`. If no host is provided, configured
 knot hosts are used.
 
@@ -199,6 +205,7 @@ List issues:
 tang issue list
 tang issue list --state all
 tang issue list --state closed --limit 20
+tang issue list --atproto
 ```
 
 Create an issue:
@@ -225,8 +232,19 @@ tang issue close 1
 tang issue reopen 1
 ```
 
-Issue arguments may be a displayed number such as `1` or `#1`, a record rkey, or
-a full AT URI.
+Numeric issue arguments such as `1` or `#1` are AppView issue numbers. They are
+resolved through the configured AppView and match URLs like
+`/onev.cat/tang/issues/5`.
+
+For raw protocol inspection, use `--atproto`. In that mode numeric IDs are not
+accepted, because they only have meaning in AppView. Pass a full AT URI, a full
+rkey, or a unique rkey prefix instead:
+
+```sh
+tang issue list --atproto
+tang issue view 3mkuteff --atproto
+tang issue comment 3mkuteffbxa2b --atproto --body "More detail."
+```
 
 New records may need a short time before they appear in `issue list`, because
 Tangled discovers cross-record links through Constellation indexing. After
@@ -245,6 +263,7 @@ List and inspect pull requests:
 ```sh
 tang pr list
 tang pr list --state all
+tang pr list --atproto
 tang pr view 1
 tang pr view 1 --web
 tang pr diff 1
@@ -285,8 +304,18 @@ with a narrower CLI surface: one pull request patch is merged at a time, and
 GitHub-style `--squash` / `--rebase` strategies are not part of the current
 Tangled endpoint.
 
-Pull request arguments may be a displayed number such as `1` or `#1`, a record
-rkey, or a full AT URI.
+Numeric pull request arguments such as `1` or `#1` are AppView pull numbers.
+They are resolved through the configured AppView and match URLs like
+`/onev.cat/tang/pulls/3`.
+
+For raw protocol inspection, use `--atproto`. In that mode numeric IDs are not
+accepted; pass a full AT URI, a full rkey, or a unique rkey prefix instead:
+
+```sh
+tang pr list --atproto
+tang pr view 3mkuu6 --atproto
+tang pr diff 3mkuu6q672u22 --atproto
+```
 
 ### Open Tangled In A Browser
 
@@ -301,6 +330,9 @@ Open an issue:
 ```sh
 tang browse issue 1
 ```
+
+`browse issue` uses AppView issue numbers. For raw ATProto records that are not
+projected by AppView, use `issue view --atproto` and the AT URI/rkey instead.
 
 ### Configure Services
 
@@ -391,6 +423,9 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
 - Tangled AppView and Constellation indexing may lag behind successful PDS
   writes. For newly created records, keep the returned AT URI or rkey and use it
   directly while indexes catch up.
+- Numeric issue and pull request IDs are AppView IDs. If AppView misses a
+  valid PDS record, numeric resolution cannot find it; use `--atproto` with the
+  record rkey, rkey prefix, or full AT URI to inspect raw protocol data.
 - AppView is not yet a complete projection of Tangled's ATProto records. In
   particular, protocol-level issue state records
   (`sh.tangled.repo.issue.state`) and pull request status records
@@ -403,6 +438,8 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
   [tangled.org/core#517](https://tangled.org/tangled.org/core/issues/517) for
   status records that are not synchronized into AppView; this is an upstream
   AppView projection issue rather than a `tang` CLI state bug. Also see
+  [tangled.org/core#575](https://tangled.org/tangled.org/core/issues/575) for
+  skipped pull/issue projection and
   [the pull status ingestion record](https://pdsls.dev/at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo.issue/3mkuyuh6t3l2k).
 - Some older pull request records do not contain patch rounds, so `pr diff` and
   `pr checkout` cannot operate on them.

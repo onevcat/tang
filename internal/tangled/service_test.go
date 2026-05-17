@@ -193,7 +193,7 @@ func TestIssueServiceListAndUpdateIssue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListIssues error = %v", err)
 	}
-	if len(issues) != 2 || issues[0].Title != "First" || issues[1].Title != "Second" || issues[1].Number != 2 || issues[0].State != "closed" {
+	if len(issues) != 2 || issues[0].Title != "First" || issues[1].Title != "Second" || issues[1].RKey != "i2" || issues[0].State != "closed" {
 		t.Fatalf("issues = %#v", issues)
 	}
 
@@ -261,6 +261,37 @@ func TestIssueServiceListIssuesQueriesRepoDIDAndLegacyATURI(t *testing.T) {
 	}
 	if !containsString(issueTargets, repoDID) || !containsString(issueTargets, repoURI) {
 		t.Fatalf("issue targets = %#v", issueTargets)
+	}
+}
+
+func TestIssueServiceResolveIssueNumberFromAppView(t *testing.T) {
+	const did = "did:plc:alice"
+	records := map[string]fakeRecord{
+		core.RepoIssueNSID + "/i4": {
+			URI:        "at://did:plc:alice/sh.tangled.repo.issue/i4",
+			CID:        "issue-cid",
+			Lexicon:    core.RepoIssueNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo.issue","repo":"did:plc:repo","title":"AppView issue","createdAt":"2026-05-02T00:00:00Z"}`,
+		},
+	}
+	pds := newFakePDSServer(t, records)
+	appview := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/onev.cat/tang/issues/4" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, `<span data-aturi="at://did:plc:alice/sh.tangled.repo.issue/i4">issue</span>`)
+	}))
+	t.Cleanup(appview.Close)
+	stubResolvers(t, did, "onev.cat", pds.URL)
+	service := NewIssueService(config.Defaults(), pds.Client())
+
+	issue, err := service.ResolveIssueNumber(context.Background(), appview.URL, "onev.cat", "tang", 4)
+	if err != nil {
+		t.Fatalf("ResolveIssueNumber error = %v", err)
+	}
+	if issue.Number != 4 || issue.URI != "at://did:plc:alice/sh.tangled.repo.issue/i4" || issue.Title != "AppView issue" {
+		t.Fatalf("issue = %#v", issue)
 	}
 }
 
@@ -353,7 +384,7 @@ func TestPullServiceListAndMutations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPulls error = %v", err)
 	}
-	if len(pulls) != 2 || pulls[0].Title != "First" || pulls[1].Title != "Second" || pulls[1].Number != 2 || pulls[0].Status != "closed" {
+	if len(pulls) != 2 || pulls[0].Title != "First" || pulls[1].Title != "Second" || pulls[1].RKey != "p2" || pulls[0].Status != "closed" {
 		t.Fatalf("pulls = %#v", pulls)
 	}
 	if _, err := service.FetchPullPatch(context.Background(), "at://did:plc:alice/sh.tangled.repo.pull/p1"); err == nil || !strings.Contains(err.Error(), "no rounds") {
@@ -422,6 +453,37 @@ func TestPullServiceListPullsQueriesRepoDIDAndLegacyATURI(t *testing.T) {
 	}
 	if !containsString(pullTargets, repoDID) || !containsString(pullTargets, repoURI) {
 		t.Fatalf("pull targets = %#v", pullTargets)
+	}
+}
+
+func TestPullServiceResolvePullNumberFromAppView(t *testing.T) {
+	const did = "did:plc:alice"
+	records := map[string]fakeRecord{
+		core.RepoPullNSID + "/p4": {
+			URI:        "at://did:plc:alice/sh.tangled.repo.pull/p4",
+			CID:        "pull-cid",
+			Lexicon:    core.RepoPullNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo.pull","title":"AppView pull","createdAt":"2026-05-02T00:00:00Z","target":{"repo":"did:plc:repo","branch":"main"},"rounds":[]}`,
+		},
+	}
+	pds := newFakePDSServer(t, records)
+	appview := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/onev.cat/tang/pulls/4" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, `<span data-aturi="at://did:plc:alice/sh.tangled.repo.pull/p4">pull</span>`)
+	}))
+	t.Cleanup(appview.Close)
+	stubResolvers(t, did, "onev.cat", pds.URL)
+	service := NewPullService(config.Defaults(), pds.Client())
+
+	pull, err := service.ResolvePullNumber(context.Background(), appview.URL, "onev.cat", "tang", 4)
+	if err != nil {
+		t.Fatalf("ResolvePullNumber error = %v", err)
+	}
+	if pull.Number != 4 || pull.URI != "at://did:plc:alice/sh.tangled.repo.pull/p4" || pull.Title != "AppView pull" {
+		t.Fatalf("pull = %#v", pull)
 	}
 }
 

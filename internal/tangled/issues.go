@@ -3,7 +3,11 @@ package tangled
 import (
 	"context"
 	"fmt"
+	"html"
+	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +21,7 @@ import (
 
 type Issue struct {
 	Number    int    `json:"number,omitempty"`
+	RKey      string `json:"rkey,omitempty"`
 	Title     string `json:"title"`
 	Body      string `json:"body,omitempty"`
 	Repo      string `json:"repo,omitempty"`
@@ -88,6 +93,42 @@ func (s *IssueService) ListIssues(ctx context.Context, repoURI string, opts Issu
 		issues = filtered
 	}
 	return issues, nil
+}
+
+func (s *IssueService) ResolveIssueNumber(ctx context.Context, appViewURL, owner, repoName string, number int) (*Issue, error) {
+	if number < 1 {
+		return nil, fmt.Errorf("issue number must be greater than 0")
+	}
+	target, err := url.JoinPath(strings.TrimRight(appViewURL, "/"), owner, repoName, "issues", strconv.Itoa(number))
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("issue #%d not found in AppView: %s", number, resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	match := appViewIssueATURIPattern.FindSubmatch(body)
+	if match == nil {
+		return nil, fmt.Errorf("issue #%d AppView page has no issue AT URI", number)
+	}
+	issue, err := s.GetIssue(ctx, html.UnescapeString(string(match[1])))
+	if err != nil {
+		return nil, err
+	}
+	issue.Number = number
+	return issue, nil
 }
 
 func (s *IssueService) CreateIssue(ctx context.Context, session *auth.Session, repoURI, title, body string) (*Issue, error) {
@@ -271,18 +312,24 @@ func ResolveIssueIdentifier(input string, issues []Issue) (Issue, error) {
 		if n < 1 {
 			return Issue{}, fmt.Errorf("issue number must be greater than 0")
 		}
-		assignIssueNumbers(issues)
-		for _, issue := range issues {
-			if issue.Number == n {
-				return issue, nil
-			}
-		}
-		return Issue{}, fmt.Errorf("issue #%d not found", n)
+		return Issue{}, fmt.Errorf("issue #%d requires AppView resolution", n)
 	}
 	for _, issue := range issues {
 		if RKeyFromURI(issue.URI) == normalized || issue.URI == input {
 			return issue, nil
 		}
+	}
+	var matches []Issue
+	for _, issue := range issues {
+		if normalized != "" && strings.HasPrefix(RKeyFromURI(issue.URI), normalized) {
+			matches = append(matches, issue)
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		return Issue{}, fmt.Errorf("issue %q is ambiguous; matched %d issues", input, len(matches))
 	}
 	return Issue{}, fmt.Errorf("issue %q not found", input)
 }
@@ -309,14 +356,13 @@ func (s *IssueService) getIssueByParts(ctx context.Context, did, collection, rke
 	if out.Cid != nil {
 		cid = *out.Cid
 	}
-	return &Issue{Title: record.Title, Body: body, Repo: record.Repo, State: "open", Author: did, CreatedAt: record.CreatedAt, URI: out.Uri, CID: cid}, nil
+	return &Issue{Title: record.Title, Body: body, Repo: record.Repo, State: "open", Author: did, CreatedAt: record.CreatedAt, URI: out.Uri, RKey: rkey, CID: cid}, nil
 }
 
 func assignIssueNumbers(issues []Issue) {
 	sort.Slice(issues, func(i, j int) bool {
 		return issues[i].CreatedAt < issues[j].CreatedAt
 	})
-	for i := range issues {
-		issues[i].Number = i + 1
-	}
 }
+
+var appViewIssueATURIPattern = regexp.MustCompile(`data-aturi=["']([^"']+/sh\.tangled\.repo\.issue/[^"']+)["']`)

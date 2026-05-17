@@ -29,6 +29,7 @@ func newBrowseCommand(opts *RootOptions) *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use:   "issue <issue>",
 		Short: "Open an issue in a browser",
+		Long:  "Open an issue in a browser. Numeric issue arguments are Tangled AppView issue numbers; rkeys and AT URIs can only be opened when they resolve to an AppView-numbered issue.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, context, err := browseContext(cmd)
@@ -40,15 +41,15 @@ func newBrowseCommand(opts *RootOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			issues, err := service.ListIssues(cmd.Context(), repoURI, tangled.IssueListOptions{State: "all", Limit: 100})
+			issue, err := resolveIssueArg(cmd, service, repoURI, args[0], false)
 			if err != nil {
 				return err
 			}
-			issue, err := tangled.ResolveIssueIdentifier(args[0], issues)
-			if err != nil {
-				return err
+			target := issueURL(cfg, context, issue)
+			if target == "" {
+				return fmt.Errorf("issue %s has no AppView number; browse issue requires an AppView issue number", issueDisplayID(issue))
 			}
-			return openBrowserForCLI(issueURL(cfg, context, issue))
+			return openBrowserForCLI(target)
 		},
 	})
 	_ = opts
@@ -75,7 +76,7 @@ func issueURL(cfg *config.Config, context *repo.RepositoryContext, issue tangled
 	base := strings.TrimRight(cfg.AppView.URL, "/")
 	number := issue.Number
 	if number <= 0 {
-		number = 1
+		return ""
 	}
 	return base + "/" + url.PathEscape(context.Owner) + "/" + url.PathEscape(context.Name) + "/issues/" + strconv.Itoa(number)
 }

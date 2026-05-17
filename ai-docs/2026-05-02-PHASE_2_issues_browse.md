@@ -26,7 +26,7 @@ Implement issue list/create/view/close/reopen/edit/comment and browse commands, 
 
 ## Validation Log
 
-- Completed: unit tests cover Constellation `/links` request/response mapping, AT-URI parsing, issue identifier resolution for `1` / `#1` / rkey, body input, and browse URL construction.
+- Completed: unit tests cover Constellation `/links` request/response mapping, AT-URI parsing, issue identifier resolution, body input, and browse URL construction.
 - Completed: `go test ./...` passed.
 - Completed: `PATH="$(go env GOPATH)/bin:$PATH" make lint` passed with 0 issues.
 - Completed: `make build` passed and `./bin/tang --help` lists `issue` and `browse`.
@@ -46,6 +46,7 @@ Implement issue list/create/view/close/reopen/edit/comment and browse commands, 
 
 - After `tang issue close`, an immediate AppView HTML check still showed `open`. The CLI writes `sh.tangled.repo.issue.state` records successfully, but AppView state consumption or indexing appears delayed or incomplete. The issue was reopened after this check, and the final AppView state is open.
 - New issue records may take a short time to appear through Constellation. CLI commands that receive a direct rkey use a session-DID fallback so create/comment/close/reopen flows can continue before indexing catches up.
+- Follow-up on 2026-05-17: numeric issue arguments are AppView issue numbers, resolved by reading the AppView issue page and extracting the issue AT URI. Raw ATProto inspection is available with `--atproto`, which only accepts a full AT URI, a full rkey, or a unique rkey prefix; numeric IDs are rejected in that mode because they have no protocol-level meaning.
 
 ## Completion
 

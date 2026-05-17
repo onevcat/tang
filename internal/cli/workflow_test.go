@@ -66,6 +66,7 @@ func TestRepositoryIssuePullAndSSHKeyCommandsWithLocalATProto(t *testing.T) {
 		},
 	}, map[string][]byte{patchCID: gzipForCLITest(t, "diff --git a/README.md b/README.md\n")})
 	constellation := newCLIWorkflowConstellation(t)
+	appview := newCLIWorkflowAppView(t)
 	restoreResolvers := tangled.SetResolversForTesting(
 		func(context.Context, string) (*atproto.Identity, error) {
 			return &atproto.Identity{DID: "did:plc:alice", Handle: "onev.cat", PDS: pds.URL}, nil
@@ -105,7 +106,7 @@ func TestRepositoryIssuePullAndSSHKeyCommandsWithLocalATProto(t *testing.T) {
 	if err := cfg.Set("knot.hosts", knotHost+",tangled.org"); err != nil {
 		t.Fatalf("Set knot hosts error = %v", err)
 	}
-	if err := cfg.Set("appview.url", "https://app.example.com"); err != nil {
+	if err := cfg.Set("appview.url", appview.URL); err != nil {
 		t.Fatalf("Set appview error = %v", err)
 	}
 	session, err := auth.NewSession("did:plc:alice", "onev.cat", pds.URL, "access", "refresh")
@@ -125,16 +126,21 @@ func TestRepositoryIssuePullAndSSHKeyCommandsWithLocalATProto(t *testing.T) {
 	assertCLIWorkflowOutput(t, "repo list authenticated", []string{"repo", "list"}, "onev.cat/tang")
 	assertCLIWorkflowOutput(t, "repo view", []string{"repo", "view", "onev.cat/tang"}, "SSH: git@"+knotHost+":onev.cat/tang")
 	assertCLIWorkflowOutput(t, "repo create", []string{"repo", "create", "new-repo"}, "Created repository onev.cat/new-repo")
-	assertCLIWorkflowOutput(t, "issue list", []string{"issue", "list", "--state", "all"}, "#1\tIssue")
+	assertCLIWorkflowOutput(t, "issue list", []string{"issue", "list", "--state", "all"}, "i1\tIssue")
+	assertCLIWorkflowOutput(t, "issue list atproto", []string{"issue", "list", "--state", "all", "--atproto"}, "i1\tIssue")
 	assertCLIWorkflowOutput(t, "issue view", []string{"issue", "view", "#1"}, "Comment by did:plc:alice")
+	assertCLIWorkflowOutput(t, "issue view atproto", []string{"issue", "view", "i1", "--atproto"}, "Comment by did:plc:alice")
+	assertCLIWorkflowOutput(t, "issue view json filtered", []string{"issue", "view", "#1", "--json=number,title"}, `"title": "Issue"`)
 	assertCLIWorkflowOutput(t, "issue view web", []string{"issue", "view", "#1", "--web"}, "")
 	assertCLIWorkflowOutput(t, "issue create", []string{"issue", "create", "New", "--body", "New body"}, "Created issue")
 	assertCLIWorkflowOutput(t, "issue close", []string{"issue", "close", "#1"}, "Issue #1 is now closed")
 	assertCLIWorkflowOutput(t, "issue edit", []string{"issue", "edit", "#1", "--title", "Updated"}, "Updated issue")
 	assertCLIWorkflowOutput(t, "issue comment", []string{"issue", "comment", "#1", "--body", "hello"}, "Commented on issue #1")
-	assertCLIWorkflowOutput(t, "pr list", []string{"pr", "list", "--state", "all"}, "#1\tPull")
+	assertCLIWorkflowOutput(t, "pr list", []string{"pr", "list", "--state", "all"}, "p1\tPull")
+	assertCLIWorkflowOutput(t, "pr list atproto", []string{"pr", "list", "--state", "all", "--atproto"}, "p1\tPull")
 	assertCLIWorkflowOutput(t, "pr view web", []string{"pr", "view", "#1", "--web"}, "")
 	assertCLIWorkflowOutput(t, "pr view", []string{"pr", "view", "#1"}, "Merge: clean")
+	assertCLIWorkflowOutput(t, "pr view atproto", []string{"pr", "view", "p1", "--atproto"}, "Merge: clean")
 	assertCLIWorkflowOutput(t, "pr create", []string{"pr", "create", "--title", "New PR", "--head", "feature"}, "Created pull")
 	assertCLIWorkflowOutput(t, "pr diff", []string{"pr", "diff", "#1"}, "diff --git")
 	assertCLIWorkflowOutput(t, "pr close", []string{"pr", "close", "#1"}, "Pull #1 is now closed")
@@ -165,7 +171,7 @@ func TestRepositoryIssuePullAndSSHKeyCommandsWithLocalATProto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("browseContext error = %v", err)
 	}
-	if cfgForBrowse.AppView.URL != "https://app.example.com" || contextForBrowse.Identifier() != "onev.cat/tang" {
+	if cfgForBrowse.AppView.URL != appview.URL || contextForBrowse.Identifier() != "onev.cat/tang" {
 		t.Fatalf("browse context = %#v %#v", cfgForBrowse, contextForBrowse)
 	}
 }
@@ -280,6 +286,22 @@ func newCLIWorkflowKnot(t *testing.T) *httptest.Server {
 			writeJSONForCLITest(t, w, map[string]any{})
 		case "/xrpc/sh.tangled.repo.mergeCheck":
 			writeJSONForCLITest(t, w, map[string]any{"is_conflicted": false})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func newCLIWorkflowAppView(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/onev.cat/tang/issues/1":
+			_, _ = io.WriteString(w, `<span data-aturi="at://did:plc:alice/sh.tangled.repo.issue/i1">issue</span>`)
+		case "/onev.cat/tang/pulls/1":
+			_, _ = io.WriteString(w, `<span data-aturi="at://did:plc:alice/sh.tangled.repo.pull/p1">pull</span>`)
 		default:
 			http.NotFound(w, r)
 		}

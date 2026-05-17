@@ -22,6 +22,8 @@ var (
 	resolveHandleForCLI = atproto.ResolveHandle
 )
 
+const pullAtprotoHelp = "By default, numeric pull arguments are Tangled AppView pull numbers. With --atproto, numeric IDs are rejected; pass a pull rkey, unique rkey prefix, or full AT URI."
+
 func newPRCommand(opts *RootOptions) *cobra.Command {
 	cmd := &cobra.Command{Use: "pr", Short: "Manage Tangled pull requests"}
 	cmd.AddCommand(newPRListCommand(opts))
@@ -38,9 +40,11 @@ func newPRCommand(opts *RootOptions) *cobra.Command {
 
 func newPRListCommand(opts *RootOptions) *cobra.Command {
 	var state string
+	var atproto bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List pull requests",
+		Long:  "List pull requests from PDS/Constellation. Default output uses stable rkeys; --atproto makes the raw-record mode explicit for scripting and debugging AppView projection gaps.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_, service, repoURI, _, err := prDependencies(cmd)
 			if err != nil {
@@ -54,7 +58,7 @@ func newPRListCommand(opts *RootOptions) *cobra.Command {
 				return err
 			}
 			for _, pull := range pulls {
-				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "#%d\t%s\t%s\t%s\n", pull.Number, pull.Title, pull.Status, pull.Author); err != nil {
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\n", pullDisplayID(pull), pull.Title, pull.Status, pull.Author); err != nil {
 					return err
 				}
 			}
@@ -62,25 +66,31 @@ func newPRListCommand(opts *RootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&state, "state", "open", "Filter by state: open, closed, merged, all")
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Show raw ATProto pull records from PDS/Constellation")
 	return cmd
 }
 
 func newPRViewCommand(opts *RootOptions) *cobra.Command {
 	var web bool
+	var atproto bool
 	cmd := &cobra.Command{
 		Use:   "view <pull>",
 		Short: "View a pull request",
+		Long:  "View a pull request.\n\n" + pullAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, service, repoURI, context, err := prDependencies(cmd)
 			if err != nil {
 				return err
 			}
-			pull, err := resolvePullArg(cmd, service, repoURI, args[0])
+			pull, err := resolvePullArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
 			if web {
+				if pull.Number <= 0 {
+					return fmt.Errorf("pull %s has no AppView number", pullDisplayID(pull))
+				}
 				return openBrowserForCLI(strings.TrimRight(cfg.AppView.URL, "/") + "/" + context.Owner + "/" + context.Name + "/pulls/" + fmt.Sprint(pull.Number))
 			}
 			if repoRecord, err := tangled.NewRepoService(cfg, nil).GetRepo(cmd.Context(), context.Owner, context.Name); err == nil {
@@ -95,11 +105,12 @@ func newPRViewCommand(opts *RootOptions) *cobra.Command {
 			if rendered, err := renderJSONIfRequested(cmd, opts, pull); rendered || err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Pull #%d %s\nTitle: %s\nAuthor: %s\nTarget: %s\nSource: %s\nMerge: %s\nURI: %s\n\n%s\n", pull.Number, pull.Status, pull.Title, pull.Author, pull.Target, pull.Branch, pull.Mergeable, pull.URI, pull.Body)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Pull %s %s\nTitle: %s\nAuthor: %s\nTarget: %s\nSource: %s\nMerge: %s\nURI: %s\n\n%s\n", pullDisplayID(pull), pull.Status, pull.Title, pull.Author, pull.Target, pull.Branch, pull.Mergeable, pull.URI, pull.Body)
 			return err
 		},
 	}
 	cmd.Flags().BoolVar(&web, "web", false, "Open the pull request in a browser")
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
 	return cmd
 }
 
@@ -166,9 +177,11 @@ func newPRCreateCommand(opts *RootOptions) *cobra.Command {
 }
 
 func newPRStateCommand(opts *RootOptions, name, state string) *cobra.Command {
-	return &cobra.Command{
+	var atproto bool
+	cmd := &cobra.Command{
 		Use:   name + " <pull>",
 		Short: name + " a pull request",
+		Long:  strings.ToUpper(name[:1]) + name[1:] + " a pull request.\n\n" + pullAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			session, err := auth.Load()
@@ -179,7 +192,7 @@ func newPRStateCommand(opts *RootOptions, name, state string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pull, err := resolvePullArg(cmd, service, repoURI, args[0])
+			pull, err := resolvePullArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -190,23 +203,27 @@ func newPRStateCommand(opts *RootOptions, name, state string) *cobra.Command {
 			if rendered, err := renderJSONIfRequested(cmd, opts, pull); rendered || err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Pull #%d is now %s\n", pull.Number, state)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Pull %s is now %s\n", pullDisplayID(pull), state)
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
+	return cmd
 }
 
 func newPRDiffCommand() *cobra.Command {
-	return &cobra.Command{
+	var atproto bool
+	cmd := &cobra.Command{
 		Use:   "diff <pull>",
 		Short: "Print pull request patch",
+		Long:  "Print a pull request patch.\n\n" + pullAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, service, repoURI, _, err := prDependencies(cmd)
 			if err != nil {
 				return err
 			}
-			pull, err := resolvePullArg(cmd, service, repoURI, args[0])
+			pull, err := resolvePullArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -218,13 +235,17 @@ func newPRDiffCommand() *cobra.Command {
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
+	return cmd
 }
 
 func newPRCommentCommand(opts *RootOptions) *cobra.Command {
+	var atproto bool
 	flags := bodyFlags{}
 	cmd := &cobra.Command{
 		Use:   "comment <pull>",
 		Short: "Comment on a pull request",
+		Long:  "Comment on a pull request.\n\n" + pullAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			session, err := auth.Load()
@@ -242,7 +263,7 @@ func newPRCommentCommand(opts *RootOptions) *cobra.Command {
 			if !hasBody || body == "" {
 				return fmt.Errorf("comment body is required")
 			}
-			pull, err := resolvePullArg(cmd, service, repoURI, args[0])
+			pull, err := resolvePullArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -253,25 +274,28 @@ func newPRCommentCommand(opts *RootOptions) *cobra.Command {
 			if rendered, err := renderJSONIfRequested(cmd, opts, comment); rendered || err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Commented on pull #%d\n", pull.Number)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Commented on pull %s\n", pullDisplayID(pull))
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
 	addBodyFlags(cmd, &flags)
 	return cmd
 }
 
 func newPRCheckoutCommand() *cobra.Command {
-	return &cobra.Command{
+	var atproto bool
+	cmd := &cobra.Command{
 		Use:   "checkout <pull>",
 		Short: "Checkout a pull request source branch",
+		Long:  "Checkout a pull request source branch.\n\n" + pullAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, service, repoURI, context, err := prDependencies(cmd)
 			if err != nil {
 				return err
 			}
-			pull, err := resolvePullArg(cmd, service, repoURI, args[0])
+			pull, err := resolvePullArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -282,13 +306,17 @@ func newPRCheckoutCommand() *cobra.Command {
 			return tanggit.CheckoutBranchFromRemote(cmd.Context(), cwd, context.RemoteName, pull.Branch)
 		},
 	}
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
+	return cmd
 }
 
 func newPRMergeCommand() *cobra.Command {
 	var subject, body string
+	var atproto bool
 	cmd := &cobra.Command{
 		Use:   "merge <pull>",
 		Short: "Merge a pull request patch",
+		Long:  "Merge a pull request patch.\n\n" + pullAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			session, err := auth.Load()
@@ -299,7 +327,7 @@ func newPRMergeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pull, err := resolvePullArg(cmd, service, repoURI, args[0])
+			pull, err := resolvePullArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -346,6 +374,7 @@ func newPRMergeCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&subject, "subject", "", "Merge commit subject")
 	cmd.Flags().StringVar(&body, "body", "", "Merge commit body")
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
 	return cmd
 }
 
@@ -365,15 +394,38 @@ func prDependencies(cmd *cobra.Command) (*config.Config, *tangled.PullService, s
 	return cfg, tangled.NewPullService(cfg, nil), repoURI, context, nil
 }
 
-func resolvePullArg(cmd *cobra.Command, service *tangled.PullService, repoURI, input string) (tangled.Pull, error) {
+func resolvePullArg(cmd *cobra.Command, service *tangled.PullService, repoURI, input string, atproto bool) (tangled.Pull, error) {
+	normalized := strings.TrimPrefix(input, "#")
+	if number, parseErr := strconv.Atoi(normalized); parseErr == nil {
+		if atproto {
+			return tangled.Pull{}, fmt.Errorf("numeric pull IDs are AppView IDs; use a pull rkey or AT URI with --atproto")
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return tangled.Pull{}, err
+		}
+		context, err := currentRepoContext(cmd, cfg)
+		if err != nil {
+			return tangled.Pull{}, err
+		}
+		pull, err := service.ResolvePullNumber(cmd.Context(), cfg.AppView.URL, context.Owner, context.Name, number)
+		if err != nil {
+			return tangled.Pull{}, err
+		}
+		return *pull, nil
+	}
+	if strings.HasPrefix(input, "at://") {
+		pull, err := service.GetPull(cmd.Context(), input)
+		if err != nil {
+			return tangled.Pull{}, err
+		}
+		return *pull, nil
+	}
 	pulls, err := service.ListPulls(cmd.Context(), repoURI, "all", 100)
 	if err == nil {
 		if pull, resolveErr := tangled.ResolvePullIdentifier(input, pulls); resolveErr == nil {
 			return pull, nil
 		}
-	}
-	if _, parseErr := strconv.Atoi(strings.TrimPrefix(input, "#")); parseErr == nil {
-		return tangled.Pull{}, fmt.Errorf("pull %s not found", input)
 	}
 	session, loadErr := auth.Load()
 	if loadErr != nil {
@@ -387,6 +439,19 @@ func resolvePullArg(cmd *cobra.Command, service *tangled.PullService, repoURI, i
 		return tangled.Pull{}, err
 	}
 	return *pull, nil
+}
+
+func pullDisplayID(pull tangled.Pull) string {
+	if pull.Number > 0 {
+		return fmt.Sprintf("#%d", pull.Number)
+	}
+	if pull.RKey != "" {
+		return pull.RKey
+	}
+	if rkey := tangled.RKeyFromURI(pull.URI); rkey != "" {
+		return rkey
+	}
+	return pull.URI
 }
 
 func resolveRepoOwnerForCLI(cmd *cobra.Command, owner string) (string, string, error) {

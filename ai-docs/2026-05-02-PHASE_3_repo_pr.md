@@ -60,6 +60,7 @@ Implement repository commands and Tangled pull request workflows: repo view/list
 - Follow-up on 2026-05-03: `knot1.tangled.sh` is now the first default knot host, so `repo create` uses the create-capable knot by default. `tangled.org` remains in the default host list for AppView-style and existing remote URLs.
 - Follow-up on 2026-05-03: Tangled web maps repos whose record knot is `knot1.tangled.sh` to hosted clone URLs on `tangled.org`. After refreshing the account SSH key, `git clone git@tangled.org:onev.cat/tang-playground` succeeded, so `repo clone` now uses the web-equivalent SSH clone URL.
 - Follow-up on 2026-05-03: `repo clone` now follows `clone.protocol` (`https` by default, `ssh` optional) for `OWNER/REPO` inputs, while explicit clone URLs are passed directly to `git clone`. Unit tests cover config validation, hosted clone URL mapping, protocol selection, and explicit URL detection.
+- Follow-up on 2026-05-17: numeric pull request arguments are AppView pull numbers, resolved by reading the AppView pull page and extracting the pull AT URI. Raw ATProto inspection is available with `--atproto`, which only accepts a full AT URI, a full rkey, or a unique rkey prefix; numeric IDs are rejected in that mode because they have no protocol-level meaning.
 
 ## Completion
 

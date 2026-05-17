@@ -13,6 +13,13 @@ import (
 	"tangled.org/onev.cat/tang/internal/tangled"
 )
 
+type issueViewOutput struct {
+	tangled.Issue
+	Comments []tangled.Comment `json:"comments"`
+}
+
+const issueAtprotoHelp = "By default, numeric issue arguments are Tangled AppView issue numbers. With --atproto, numeric IDs are rejected; pass an issue rkey, unique rkey prefix, or full AT URI."
+
 func newIssueCommand(opts *RootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "issue",
@@ -31,9 +38,11 @@ func newIssueCommand(opts *RootOptions) *cobra.Command {
 func newIssueListCommand(opts *RootOptions) *cobra.Command {
 	var state string
 	var limit int
+	var atproto bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List issues",
+		Long:  "List issues from PDS/Constellation. Default output uses stable rkeys; --atproto makes the raw-record mode explicit for scripting and debugging AppView projection gaps.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, service, repoURI, err := issueDependencies(cmd)
 			_ = cfg
@@ -48,7 +57,7 @@ func newIssueListCommand(opts *RootOptions) *cobra.Command {
 				return err
 			}
 			for _, issue := range issues {
-				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "#%d\t%s\t%s\t%s\n", issue.Number, issue.Title, issue.State, issue.Author); err != nil {
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\n", issueDisplayID(issue), issue.Title, issue.State, issue.Author); err != nil {
 					return err
 				}
 			}
@@ -57,6 +66,7 @@ func newIssueListCommand(opts *RootOptions) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&state, "state", "open", "Filter by state: open, closed, all")
 	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum issues to list")
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Show raw ATProto issue records from PDS/Constellation")
 	return cmd
 }
 
@@ -96,16 +106,18 @@ func newIssueCreateCommand(opts *RootOptions) *cobra.Command {
 
 func newIssueViewCommand(opts *RootOptions) *cobra.Command {
 	var web bool
+	var atproto bool
 	cmd := &cobra.Command{
 		Use:   "view <issue>",
 		Short: "View an issue",
+		Long:  "View an issue.\n\n" + issueAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, service, repoURI, err := issueDependencies(cmd)
 			if err != nil {
 				return err
 			}
-			issue, err := resolveIssueArg(cmd, service, repoURI, args[0])
+			issue, err := resolveIssueArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -114,13 +126,17 @@ func newIssueViewCommand(opts *RootOptions) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return openBrowserForCLI(issueURL(cfg, context, issue))
+				target := issueURL(cfg, context, issue)
+				if target == "" {
+					return fmt.Errorf("issue %s has no AppView number; open it by AT URI outside tang", issueDisplayID(issue))
+				}
+				return openBrowserForCLI(target)
 			}
 			comments, _ := service.ListComments(cmd.Context(), issue.URI)
-			if rendered, err := renderJSONIfRequested(cmd, opts, map[string]any{"issue": issue, "comments": comments}); rendered || err != nil {
+			if rendered, err := renderJSONIfRequested(cmd, opts, issueViewOutput{Issue: issue, Comments: comments}); rendered || err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Issue #%d %s\nTitle: %s\nAuthor: %s\nCreated: %s\nURI: %s\n\n", issue.Number, issue.State, issue.Title, issue.Author, issue.CreatedAt, issue.URI)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Issue %s %s\nTitle: %s\nAuthor: %s\nCreated: %s\nURI: %s\n\n", issueDisplayID(issue), issue.State, issue.Title, issue.Author, issue.CreatedAt, issue.URI)
 			if issue.Body != "" {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n", issue.Body)
 			}
@@ -133,13 +149,16 @@ func newIssueViewCommand(opts *RootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&web, "web", false, "Open the issue in a browser")
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
 	return cmd
 }
 
 func newIssueStateCommand(opts *RootOptions, name, state string) *cobra.Command {
-	return &cobra.Command{
+	var atproto bool
+	cmd := &cobra.Command{
 		Use:   name + " <issue>",
 		Short: name + " an issue",
+		Long:  strings.ToUpper(name[:1]) + name[1:] + " an issue.\n\n" + issueAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			session, err := auth.Load()
@@ -150,7 +169,7 @@ func newIssueStateCommand(opts *RootOptions, name, state string) *cobra.Command 
 			if err != nil {
 				return err
 			}
-			issue, err := resolveIssueArg(cmd, service, repoURI, args[0])
+			issue, err := resolveIssueArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -161,18 +180,22 @@ func newIssueStateCommand(opts *RootOptions, name, state string) *cobra.Command 
 			if rendered, err := renderJSONIfRequested(cmd, opts, issue); rendered || err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Issue #%d is now %s\n", issue.Number, state)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Issue %s is now %s\n", issueDisplayID(issue), state)
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
+	return cmd
 }
 
 func newIssueEditCommand(opts *RootOptions) *cobra.Command {
 	var title string
+	var atproto bool
 	flags := bodyFlags{}
 	cmd := &cobra.Command{
 		Use:   "edit <issue>",
 		Short: "Edit an issue",
+		Long:  "Edit an issue.\n\n" + issueAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			session, err := auth.Load()
@@ -190,7 +213,7 @@ func newIssueEditCommand(opts *RootOptions) *cobra.Command {
 			if title == "" && !hasBody {
 				return fmt.Errorf("at least one of --title, --body, or --body-file is required")
 			}
-			issue, err := resolveIssueArg(cmd, service, repoURI, args[0])
+			issue, err := resolveIssueArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -206,15 +229,18 @@ func newIssueEditCommand(opts *RootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "New title")
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
 	addBodyFlags(cmd, &flags)
 	return cmd
 }
 
 func newIssueCommentCommand(opts *RootOptions) *cobra.Command {
+	var atproto bool
 	flags := bodyFlags{}
 	cmd := &cobra.Command{
 		Use:   "comment <issue>",
 		Short: "Add a comment to an issue",
+		Long:  "Add a comment to an issue.\n\n" + issueAtprotoHelp,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			session, err := auth.Load()
@@ -232,7 +258,7 @@ func newIssueCommentCommand(opts *RootOptions) *cobra.Command {
 			if !hasBody || body == "" {
 				return fmt.Errorf("comment body is required")
 			}
-			issue, err := resolveIssueArg(cmd, service, repoURI, args[0])
+			issue, err := resolveIssueArg(cmd, service, repoURI, args[0], atproto)
 			if err != nil {
 				return err
 			}
@@ -243,10 +269,11 @@ func newIssueCommentCommand(opts *RootOptions) *cobra.Command {
 			if rendered, err := renderJSONIfRequested(cmd, opts, comment); rendered || err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Commented on issue #%d\n", issue.Number)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Commented on issue %s\n", issueDisplayID(issue))
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&atproto, "atproto", false, "Use raw PDS/Constellation resolution; numeric AppView IDs are not accepted")
 	addBodyFlags(cmd, &flags)
 	return cmd
 }
@@ -295,18 +322,38 @@ func addBodyFlags(cmd *cobra.Command, flags *bodyFlags) {
 	cmd.Flags().StringVarP(&flags.bodyFile, "body-file", "F", "", "Read body from file, or '-' for stdin")
 }
 
-func resolveIssueArg(cmd *cobra.Command, service *tangled.IssueService, repoURI, input string) (tangled.Issue, error) {
+func resolveIssueArg(cmd *cobra.Command, service *tangled.IssueService, repoURI, input string, atproto bool) (tangled.Issue, error) {
+	normalized := strings.TrimPrefix(input, "#")
+	if number, parseErr := strconv.Atoi(normalized); parseErr == nil {
+		if atproto {
+			return tangled.Issue{}, fmt.Errorf("numeric issue IDs are AppView IDs; use an issue rkey or AT URI with --atproto")
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return tangled.Issue{}, err
+		}
+		context, err := currentRepoContext(cmd, cfg)
+		if err != nil {
+			return tangled.Issue{}, err
+		}
+		issue, err := service.ResolveIssueNumber(cmd.Context(), cfg.AppView.URL, context.Owner, context.Name, number)
+		if err != nil {
+			return tangled.Issue{}, err
+		}
+		return *issue, nil
+	}
+	if strings.HasPrefix(input, "at://") {
+		issue, err := service.GetIssue(cmd.Context(), input)
+		if err != nil {
+			return tangled.Issue{}, err
+		}
+		return *issue, nil
+	}
 	issues, err := service.ListIssues(cmd.Context(), repoURI, tangled.IssueListOptions{State: "all", Limit: 100})
 	if err == nil {
 		if issue, resolveErr := tangled.ResolveIssueIdentifier(input, issues); resolveErr == nil {
 			return issue, nil
 		}
-	}
-	if _, parseErr := strconv.Atoi(strings.TrimPrefix(input, "#")); parseErr == nil {
-		if err != nil {
-			return tangled.Issue{}, err
-		}
-		return tangled.Issue{}, fmt.Errorf("issue %s not found", input)
 	}
 	session, loadErr := auth.Load()
 	if loadErr != nil {
@@ -320,4 +367,17 @@ func resolveIssueArg(cmd *cobra.Command, service *tangled.IssueService, repoURI,
 		return tangled.Issue{}, err
 	}
 	return *issue, nil
+}
+
+func issueDisplayID(issue tangled.Issue) string {
+	if issue.Number > 0 {
+		return fmt.Sprintf("#%d", issue.Number)
+	}
+	if issue.RKey != "" {
+		return issue.RKey
+	}
+	if rkey := tangled.RKeyFromURI(issue.URI); rkey != "" {
+		return rkey
+	}
+	return issue.URI
 }
