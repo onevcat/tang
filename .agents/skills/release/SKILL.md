@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release tang end-to-end: infer the next version from git history, update CHANGELOG.md, test, tag, build the macOS arm64 binary, upload the GitHub release asset, update onevcat/homebrew-tap, and verify Homebrew installation.
+description: "Release tang end-to-end: infer the next version from git history, update CHANGELOG.md, test, tag, build the macOS arm64 binary, upload the GitHub release asset, update onevcat/homebrew-tap, and verify Homebrew installation."
 ---
 
 # tang Release Skill
