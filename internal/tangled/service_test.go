@@ -802,12 +802,6 @@ func withCreateRecordHook(hook func(collection string, record json.RawMessage)) 
 	}
 }
 
-func withPutRecordHook(hook func(collection, rkey string, record json.RawMessage)) fakePDSOption {
-	return func(s *fakePDSState) {
-		s.putRecordHook = hook
-	}
-}
-
 func newFakePDSServer(t *testing.T, records map[string]fakeRecord, opts ...fakePDSOption) *httptest.Server {
 	t.Helper()
 	state := &fakePDSState{records: records, blobs: map[string][]byte{}}
