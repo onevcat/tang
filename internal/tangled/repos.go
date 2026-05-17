@@ -109,7 +109,7 @@ func (s *RepoService) CreateRepo(ctx context.Context, session *auth.Session, opt
 	}
 	record := &core.Repo{
 		LexiconTypeID: core.RepoNSID,
-		Name:          opts.Name,
+		Name:          &opts.Name,
 		Knot:          knot,
 		Description:   optionalString(opts.Description),
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
@@ -152,6 +152,10 @@ func (s *RepoService) CloneURL(repo Repo) (string, error) {
 }
 
 func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
+	name := ""
+	if record.Name != nil {
+		name = *record.Name
+	}
 	description := ""
 	if record.Description != nil {
 		description = *record.Description
@@ -163,15 +167,15 @@ func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
 	cloneHost := cloneHostForKnot(record.Knot)
 	return Repo{
 		Owner:       owner,
-		Name:        record.Name,
+		Name:        name,
 		Description: description,
 		Knot:        record.Knot,
 		RepoDID:     repoDID,
 		CreatedAt:   record.CreatedAt,
 		URI:         uri,
 		CID:         cid,
-		CloneSSH:    fmt.Sprintf("git@%s:%s/%s", cloneHost, owner, record.Name),
-		CloneHTTPS:  fmt.Sprintf("https://%s/%s/%s", cloneHost, owner, record.Name),
+		CloneSSH:    fmt.Sprintf("git@%s:%s/%s", cloneHost, owner, name),
+		CloneHTTPS:  fmt.Sprintf("https://%s/%s/%s", cloneHost, owner, name),
 	}
 }
 

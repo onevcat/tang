@@ -57,6 +57,12 @@ func TestRepoServiceListAndGetRepoUseResolvedPDS(t *testing.T) {
 func TestIssueServiceCreateGetStateAndComments(t *testing.T) {
 	const did = "did:plc:alice"
 	records := map[string]fakeRecord{
+		core.RepoNSID + "/r1": {
+			URI:        "at://did:plc:alice/sh.tangled.repo/r1",
+			CID:        "repo-cid",
+			Lexicon:    core.RepoNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo","name":"tang","knot":"knot1.tangled.sh","repoDid":"did:plc:repo","createdAt":"2026-05-02T00:00:00Z"}`,
+		},
 		core.RepoIssueNSID + "/i1": {
 			URI:        "at://did:plc:alice/sh.tangled.repo.issue/i1",
 			CID:        "issue-cid",
@@ -82,7 +88,15 @@ func TestIssueServiceCreateGetStateAndComments(t *testing.T) {
 			RecordJSON: `{"$type":"sh.tangled.repo.issue.comment","issue":"at://did:plc:alice/sh.tangled.repo.issue/i1","body":"first","createdAt":"2026-05-02T00:01:00Z"}`,
 		},
 	}
-	pds := newFakePDSServer(t, records)
+	var createdIssue map[string]any
+	pds := newFakePDSServer(t, records, withCreateRecordHook(func(collection string, record json.RawMessage) {
+		if collection != core.RepoIssueNSID {
+			return
+		}
+		if err := json.Unmarshal(record, &createdIssue); err != nil {
+			t.Fatalf("Unmarshal created issue error = %v", err)
+		}
+	}))
 	constellation := newFakeConstellationServer(t, map[string][]fakeLink{
 		core.RepoIssueStateNSID: {
 			{DID: did, Collection: core.RepoIssueStateNSID, RKey: "s1"},
@@ -124,6 +138,9 @@ func TestIssueServiceCreateGetStateAndComments(t *testing.T) {
 	}
 	if created.Title != "New" || created.Body != "New body" || created.State != "open" || created.URI == "" {
 		t.Fatalf("created issue = %#v", created)
+	}
+	if createdIssue["repo"] != "did:plc:repo" {
+		t.Fatalf("created issue repo = %#v", createdIssue)
 	}
 	comment, err := service.AddComment(context.Background(), session, issue.URI, "hello")
 	if err != nil {
@@ -192,6 +209,58 @@ func TestIssueServiceListAndUpdateIssue(t *testing.T) {
 	other.DID = "did:plc:other"
 	if _, err := service.UpdateIssue(context.Background(), &other, "at://did:plc:alice/sh.tangled.repo.issue/i1", "Updated", "", true, false); err == nil || !strings.Contains(err.Error(), "cannot edit") {
 		t.Fatalf("UpdateIssue other author error = %v", err)
+	}
+}
+
+func TestIssueServiceListIssuesQueriesRepoDIDAndLegacyATURI(t *testing.T) {
+	const did = "did:plc:alice"
+	const repoURI = "at://did:plc:alice/sh.tangled.repo/r1"
+	const repoDID = "did:plc:repo"
+	records := map[string]fakeRecord{
+		core.RepoNSID + "/r1": {
+			URI:        repoURI,
+			CID:        "repo-cid",
+			Lexicon:    core.RepoNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo","name":"tang","knot":"knot1.tangled.sh","repoDid":"` + repoDID + `","createdAt":"2026-05-02T00:00:00Z"}`,
+		},
+		core.RepoIssueNSID + "/legacy": {
+			URI:        "at://did:plc:alice/sh.tangled.repo.issue/legacy",
+			CID:        "legacy-cid",
+			Lexicon:    core.RepoIssueNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo.issue","repo":"` + repoURI + `","title":"Legacy","createdAt":"2026-05-02T00:00:00Z"}`,
+		},
+		core.RepoIssueNSID + "/canonical": {
+			URI:        "at://did:plc:alice/sh.tangled.repo.issue/canonical",
+			CID:        "canonical-cid",
+			Lexicon:    core.RepoIssueNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo.issue","repo":"` + repoDID + `","title":"Canonical","createdAt":"2026-05-02T00:01:00Z"}`,
+		},
+	}
+	pds := newFakePDSServer(t, records)
+	var issueTargets []string
+	constellation := newFakeConstellationServer(t, map[string][]fakeLink{
+		core.RepoIssueNSID: {
+			{DID: did, Collection: core.RepoIssueNSID, RKey: "canonical", Target: repoDID},
+			{DID: did, Collection: core.RepoIssueNSID, RKey: "canonical", Target: repoURI},
+			{DID: did, Collection: core.RepoIssueNSID, RKey: "legacy", Target: repoURI},
+		},
+	}, withConstellationQueryHook(func(collection, target, _ string) {
+		if collection == core.RepoIssueNSID {
+			issueTargets = append(issueTargets, target)
+		}
+	}))
+	stubResolvers(t, did, "onev.cat", pds.URL)
+	service := NewIssueService(&config.Config{Constellation: config.ConstellationConfig{URL: constellation.URL}}, pds.Client())
+
+	issues, err := service.ListIssues(context.Background(), repoURI, IssueListOptions{State: "all"})
+	if err != nil {
+		t.Fatalf("ListIssues error = %v", err)
+	}
+	if len(issues) != 2 || issues[0].Title != "Legacy" || issues[1].Title != "Canonical" {
+		t.Fatalf("issues = %#v", issues)
+	}
+	if !containsString(issueTargets, repoDID) || !containsString(issueTargets, repoURI) {
+		t.Fatalf("issue targets = %#v", issueTargets)
 	}
 }
 
@@ -301,6 +370,58 @@ func TestPullServiceListAndMutations(t *testing.T) {
 	}
 	if err := service.SetPullStatus(context.Background(), session, "at://did:plc:alice/sh.tangled.repo.pull/p1", "merged"); err != nil {
 		t.Fatalf("SetPullStatus error = %v", err)
+	}
+}
+
+func TestPullServiceListPullsQueriesRepoDIDAndLegacyATURI(t *testing.T) {
+	const did = "did:plc:alice"
+	const repoURI = "at://did:plc:alice/sh.tangled.repo/r1"
+	const repoDID = "did:plc:repo"
+	records := map[string]fakeRecord{
+		core.RepoNSID + "/r1": {
+			URI:        repoURI,
+			CID:        "repo-cid",
+			Lexicon:    core.RepoNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo","name":"tang","knot":"knot1.tangled.sh","repoDid":"` + repoDID + `","createdAt":"2026-05-02T00:00:00Z"}`,
+		},
+		core.RepoPullNSID + "/legacy": {
+			URI:        "at://did:plc:alice/sh.tangled.repo.pull/legacy",
+			CID:        "legacy-cid",
+			Lexicon:    core.RepoPullNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo.pull","title":"Legacy","createdAt":"2026-05-02T00:00:00Z","target":{"repo":"` + repoURI + `","branch":"main"},"source":{"repo":"` + repoURI + `","branch":"feature-a"},"rounds":[]}`,
+		},
+		core.RepoPullNSID + "/canonical": {
+			URI:        "at://did:plc:alice/sh.tangled.repo.pull/canonical",
+			CID:        "canonical-cid",
+			Lexicon:    core.RepoPullNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo.pull","title":"Canonical","createdAt":"2026-05-02T00:01:00Z","target":{"repo":"` + repoDID + `","branch":"main"},"source":{"repo":"` + repoDID + `","branch":"feature-b"},"rounds":[]}`,
+		},
+	}
+	pds := newFakePDSServer(t, records)
+	var pullTargets []string
+	constellation := newFakeConstellationServer(t, map[string][]fakeLink{
+		core.RepoPullNSID: {
+			{DID: did, Collection: core.RepoPullNSID, RKey: "canonical", Target: repoDID},
+			{DID: did, Collection: core.RepoPullNSID, RKey: "canonical", Target: repoURI},
+			{DID: did, Collection: core.RepoPullNSID, RKey: "legacy", Target: repoURI},
+		},
+	}, withConstellationQueryHook(func(collection, target, _ string) {
+		if collection == core.RepoPullNSID {
+			pullTargets = append(pullTargets, target)
+		}
+	}))
+	stubResolvers(t, did, "onev.cat", pds.URL)
+	service := NewPullService(&config.Config{Constellation: config.ConstellationConfig{URL: constellation.URL}}, pds.Client())
+
+	pulls, err := service.ListPulls(context.Background(), repoURI, "all", 0)
+	if err != nil {
+		t.Fatalf("ListPulls error = %v", err)
+	}
+	if len(pulls) != 2 || pulls[0].Title != "Legacy" || pulls[1].Title != "Canonical" {
+		t.Fatalf("pulls = %#v", pulls)
+	}
+	if !containsString(pullTargets, repoDID) || !containsString(pullTargets, repoURI) {
+		t.Fatalf("pull targets = %#v", pullTargets)
 	}
 }
 
@@ -465,7 +586,15 @@ func TestRepoServiceCreateRepo(t *testing.T) {
 }
 
 func TestPullServiceCreatePullAndMergeCheck(t *testing.T) {
-	server := newCombinedXRPCServer(t)
+	var createdPull map[string]any
+	server := newCombinedXRPCServer(t, withCombinedPutRecordHook(func(collection, _ string, record json.RawMessage) {
+		if collection != core.RepoPullNSID {
+			return
+		}
+		if err := json.Unmarshal(record, &createdPull); err != nil {
+			t.Fatalf("Unmarshal created pull error = %v", err)
+		}
+	}))
 	host := strings.TrimPrefix(server.URL, "https://")
 	patch := "From abc\nSubject: Add tests\n\nPatch"
 	blobCID := "bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlumdylagaqa"
@@ -494,6 +623,14 @@ func TestPullServiceCreatePullAndMergeCheck(t *testing.T) {
 	if pull.Title != "Add tests" || pull.Branch != "feature" || pull.Target != "main" {
 		t.Fatalf("pull = %#v", pull)
 	}
+	target, ok := createdPull["target"].(map[string]any)
+	if !ok || target["repo"] != "did:plc:repo" {
+		t.Fatalf("created pull target = %#v", createdPull)
+	}
+	source, ok := createdPull["source"].(map[string]any)
+	if !ok || source["repo"] != "did:plc:repo" {
+		t.Fatalf("created pull source = %#v", createdPull)
+	}
 
 	mergeService := NewPullService(&config.Config{Constellation: config.ConstellationConfig{URL: "http://127.0.0.1"}}, server.Client())
 	got, err := mergeService.MergeCheck(context.Background(), Repo{Name: "tang", Knot: host}, "did:plc:alice", Pull{URI: "at://did:plc:alice/sh.tangled.repo.pull/p1", Target: "main"})
@@ -505,8 +642,24 @@ func TestPullServiceCreatePullAndMergeCheck(t *testing.T) {
 	}
 }
 
-func newCombinedXRPCServer(t *testing.T) *httptest.Server {
+type combinedXRPCOption func(*combinedXRPCState)
+
+type combinedXRPCState struct {
+	putRecordHook func(collection, rkey string, record json.RawMessage)
+}
+
+func withCombinedPutRecordHook(hook func(collection, rkey string, record json.RawMessage)) combinedXRPCOption {
+	return func(s *combinedXRPCState) {
+		s.putRecordHook = hook
+	}
+}
+
+func newCombinedXRPCServer(t *testing.T, opts ...combinedXRPCOption) *httptest.Server {
 	t.Helper()
+	state := &combinedXRPCState{}
+	for _, opt := range opts {
+		opt(state)
+	}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/xrpc/com.atproto.server.getServiceAuth":
@@ -523,12 +676,16 @@ func newCombinedXRPCServer(t *testing.T) *httptest.Server {
 			})
 		case "/xrpc/com.atproto.repo.putRecord":
 			var input struct {
-				Collection string `json:"collection"`
-				RKey       string `json:"rkey"`
+				Collection string          `json:"collection"`
+				RKey       string          `json:"rkey"`
+				Record     json.RawMessage `json:"record"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
+			}
+			if state.putRecordHook != nil {
+				state.putRecordHook(input.Collection, input.RKey, input.Record)
 			}
 			writeJSON(t, w, map[string]string{
 				"uri": "at://did:plc:alice/" + input.Collection + "/" + input.RKey,
@@ -559,18 +716,33 @@ type fakeLink struct {
 	DID        string
 	Collection string
 	RKey       string
+	Target     string
 }
 
 type fakePDSOption func(*fakePDSState)
 
 type fakePDSState struct {
-	records map[string]fakeRecord
-	blobs   map[string][]byte
+	records          map[string]fakeRecord
+	blobs            map[string][]byte
+	createRecordHook func(collection string, record json.RawMessage)
+	putRecordHook    func(collection, rkey string, record json.RawMessage)
 }
 
 func withBlob(cid string, data []byte) fakePDSOption {
 	return func(s *fakePDSState) {
 		s.blobs[cid] = data
+	}
+}
+
+func withCreateRecordHook(hook func(collection string, record json.RawMessage)) fakePDSOption {
+	return func(s *fakePDSState) {
+		s.createRecordHook = hook
+	}
+}
+
+func withPutRecordHook(hook func(collection, rkey string, record json.RawMessage)) fakePDSOption {
+	return func(s *fakePDSState) {
+		s.putRecordHook = hook
 	}
 }
 
@@ -633,6 +805,9 @@ func newFakePDSServer(t *testing.T, records map[string]fakeRecord, opts ...fakeP
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			if state.createRecordHook != nil {
+				state.createRecordHook(input.Collection, input.Record)
+			}
 			rkey := "created"
 			writeJSON(t, w, map[string]string{
 				"uri": "at://did:plc:alice/" + input.Collection + "/" + rkey,
@@ -640,12 +815,16 @@ func newFakePDSServer(t *testing.T, records map[string]fakeRecord, opts ...fakeP
 			})
 		case "/xrpc/com.atproto.repo.putRecord":
 			var input struct {
-				Collection string `json:"collection"`
-				RKey       string `json:"rkey"`
+				Collection string          `json:"collection"`
+				RKey       string          `json:"rkey"`
+				Record     json.RawMessage `json:"record"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
+			}
+			if state.putRecordHook != nil {
+				state.putRecordHook(input.Collection, input.RKey, input.Record)
 			}
 			writeJSON(t, w, map[string]string{
 				"uri": "at://did:plc:alice/" + input.Collection + "/" + input.RKey,
@@ -693,14 +872,42 @@ func recordJSON(t *testing.T, record fakeRecord) []byte {
 	return data
 }
 
-func newFakeConstellationServer(t *testing.T, links map[string][]fakeLink) *httptest.Server {
+type fakeConstellationOption func(*fakeConstellationState)
+
+type fakeConstellationState struct {
+	queryHook func(collection, target, path string)
+}
+
+func withConstellationQueryHook(hook func(collection, target, path string)) fakeConstellationOption {
+	return func(s *fakeConstellationState) {
+		s.queryHook = hook
+	}
+}
+
+func newFakeConstellationServer(t *testing.T, links map[string][]fakeLink, opts ...fakeConstellationOption) *httptest.Server {
 	t.Helper()
+	state := &fakeConstellationState{}
+	for _, opt := range opts {
+		opt(state)
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/links" {
 			http.NotFound(w, r)
 			return
 		}
 		collection := r.URL.Query().Get("collection")
+		target := r.URL.Query().Get("target")
+		if state.queryHook != nil {
+			state.queryHook(collection, target, r.URL.Query().Get("path"))
+		}
+		sourceLinks := links[collection]
+		filterByTarget := false
+		for _, link := range sourceLinks {
+			if link.Target != "" {
+				filterByTarget = true
+				break
+			}
+		}
 		wire := struct {
 			Total          int `json:"total"`
 			LinkingRecords []struct {
@@ -708,14 +915,18 @@ func newFakeConstellationServer(t *testing.T, links map[string][]fakeLink) *http
 				Collection string `json:"collection"`
 				RKey       string `json:"rkey"`
 			} `json:"linking_records"`
-		}{Total: len(links[collection])}
-		for _, link := range links[collection] {
+		}{}
+		for _, link := range sourceLinks {
+			if filterByTarget && link.Target != target {
+				continue
+			}
 			wire.LinkingRecords = append(wire.LinkingRecords, struct {
 				DID        string `json:"did"`
 				Collection string `json:"collection"`
 				RKey       string `json:"rkey"`
 			}{DID: link.DID, Collection: link.Collection, RKey: link.RKey})
 		}
+		wire.Total = len(wire.LinkingRecords)
 		writeJSON(t, w, wire)
 	}))
 	t.Cleanup(server.Close)
@@ -749,6 +960,15 @@ func gzipBytes(t *testing.T, input string) []byte {
 		t.Fatalf("gzip close error = %v", err)
 	}
 	return out.Bytes()
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func writeJSON(t *testing.T, w http.ResponseWriter, value any) {

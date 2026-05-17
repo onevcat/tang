@@ -428,5 +428,5 @@ gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 lukechampine.com/blake3 v1.4.1 h1:I3Smz7gso8w4/TunLKec6K2fn+kyKtDxr/xcQEN84Wg=
 lukechampine.com/blake3 v1.4.1/go.mod h1:QFosUxmjB8mnrWFSNwKmvxHpfY72bmD2tQ0kBMM3kwo=
-tangled.org/core v1.13.0-alpha.0.20260502074102-37303f21368b h1:5g3kGPrs6IGoHuFAb3kqrL5EwgGTl4ulbJTYsX1WfTM=
-tangled.org/core v1.13.0-alpha.0.20260502074102-37303f21368b/go.mod h1:abXVlFoPAeM9pZier/WF1Cnn1ZoO9YE5h59WLEUy+Hk=
+tangled.org/core v1.14.0-alpha h1:cAttNSWeHeyWqrxkGybBWyvYwVLLw5yerUANbgFdGz0=
+tangled.org/core v1.14.0-alpha/go.mod h1:xGKzD6RYAVEwoWhE6IKJdGsoTDebsPjv0I9WsfGkYFI=

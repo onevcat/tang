@@ -52,11 +52,38 @@ func BuildRepoATURI(ctx context.Context, context *repo.RepositoryContext) (strin
 	}
 	for _, record := range records.Records {
 		value, ok := record.Value.Val.(*core.Repo)
-		if ok && value.Name == context.Name {
+		if ok && value.Name != nil && *value.Name == context.Name {
 			return record.Uri, nil
 		}
 	}
 	return "", fmt.Errorf("repository %s not found for %s", context.Name, context.Owner)
+}
+
+func ResolveRepoDID(ctx context.Context, repoURI string, httpClient *http.Client) (string, error) {
+	parsed, err := ParseATURI(repoURI)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Collection != core.RepoNSID || parsed.RKey == "" {
+		return "", fmt.Errorf("invalid repository AT-URI: %s", repoURI)
+	}
+	ident, err := resolveDIDFunc(ctx, parsed.DID)
+	if err != nil {
+		return "", err
+	}
+	client := NewAnonymousPDSClient(ident.PDS, httpClient)
+	out, err := client.GetRecord(ctx, parsed.DID, parsed.Collection, parsed.RKey)
+	if err != nil {
+		return "", err
+	}
+	record, ok := out.Value.Val.(*core.Repo)
+	if !ok {
+		return "", fmt.Errorf("record is not a repository: %s", repoURI)
+	}
+	if record.RepoDid == nil || *record.RepoDid == "" {
+		return "", fmt.Errorf("repository %s has no repoDid", repoURI)
+	}
+	return *record.RepoDid, nil
 }
 
 func RKeyFromURI(uri string) string {

@@ -61,12 +61,12 @@ func (s *IssueService) ListIssues(ctx context.Context, repoURI string, opts Issu
 	if limit <= 0 {
 		limit = 50
 	}
-	backlinks, err := s.Constellation.GetBacklinks(ctx, repoURI, core.RepoIssueNSID, ".repo", limit, opts.Cursor)
+	links, err := repoBacklinks(ctx, s.Constellation, s.HTTPClient, repoURI, core.RepoIssueNSID, ".repo", limit, opts.Cursor)
 	if err != nil {
 		return nil, err
 	}
-	issues := make([]Issue, 0, len(backlinks.Records))
-	for _, link := range backlinks.Records {
+	issues := make([]Issue, 0, len(links))
+	for _, link := range links {
 		issue, err := s.getIssueByParts(ctx, link.DID, link.Collection, link.RKey)
 		if err != nil {
 			continue
@@ -91,13 +91,17 @@ func (s *IssueService) ListIssues(ctx context.Context, repoURI string, opts Issu
 }
 
 func (s *IssueService) CreateIssue(ctx context.Context, session *auth.Session, repoURI, title, body string) (*Issue, error) {
+	repoDID, err := ResolveRepoDID(ctx, repoURI, s.HTTPClient)
+	if err != nil {
+		return nil, err
+	}
 	var bodyPtr *string
 	if body != "" {
 		bodyPtr = &body
 	}
 	record := &core.RepoIssue{
 		LexiconTypeID: core.RepoIssueNSID,
-		Repo:          &repoURI,
+		Repo:          repoDID,
 		Title:         title,
 		Body:          bodyPtr,
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
@@ -111,7 +115,7 @@ func (s *IssueService) CreateIssue(ctx context.Context, session *auth.Session, r
 	if out.Cid != "" {
 		cid = out.Cid
 	}
-	return &Issue{Title: title, Body: body, Repo: repoURI, State: "open", Author: session.DID, CreatedAt: record.CreatedAt, URI: out.Uri, CID: cid}, nil
+	return &Issue{Title: title, Body: body, Repo: repoDID, State: "open", Author: session.DID, CreatedAt: record.CreatedAt, URI: out.Uri, CID: cid}, nil
 }
 
 func (s *IssueService) GetIssue(ctx context.Context, issueURI string) (*Issue, error) {
@@ -151,7 +155,7 @@ func (s *IssueService) UpdateIssue(ctx context.Context, session *auth.Session, i
 		CreatedAt:     current.CreatedAt,
 	}
 	if current.Repo != "" {
-		record.Repo = &current.Repo
+		record.Repo = current.Repo
 	}
 	client := NewPDSClient(session, s.HTTPClient)
 	var swap *string
@@ -305,11 +309,7 @@ func (s *IssueService) getIssueByParts(ctx context.Context, did, collection, rke
 	if out.Cid != nil {
 		cid = *out.Cid
 	}
-	repoURI := ""
-	if record.Repo != nil {
-		repoURI = *record.Repo
-	}
-	return &Issue{Title: record.Title, Body: body, Repo: repoURI, State: "open", Author: did, CreatedAt: record.CreatedAt, URI: out.Uri, CID: cid}, nil
+	return &Issue{Title: record.Title, Body: body, Repo: record.Repo, State: "open", Author: did, CreatedAt: record.CreatedAt, URI: out.Uri, CID: cid}, nil
 }
 
 func assignIssueNumbers(issues []Issue) {

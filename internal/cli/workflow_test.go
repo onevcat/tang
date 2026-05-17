@@ -37,7 +37,7 @@ func TestRepositoryIssuePullAndSSHKeyCommandsWithLocalATProto(t *testing.T) {
 		core.RepoNSID + "/r1": {
 			URI:   "at://did:plc:alice/sh.tangled.repo/r1",
 			CID:   "repo-cid",
-			Value: `{"$type":"sh.tangled.repo","name":"tang","knot":"` + knotHost + `","createdAt":"2026-05-02T00:00:00Z"}`,
+			Value: `{"$type":"sh.tangled.repo","name":"tang","knot":"` + knotHost + `","repoDid":"did:plc:repo","createdAt":"2026-05-02T00:00:00Z"}`,
 		},
 		core.RepoIssueNSID + "/i1": {
 			URI:   "at://did:plc:alice/sh.tangled.repo.issue/i1",

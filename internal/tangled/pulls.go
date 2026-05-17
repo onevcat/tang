@@ -69,12 +69,12 @@ func (s *PullService) ListPulls(ctx context.Context, repoURI string, status stri
 	if limit <= 0 {
 		limit = 50
 	}
-	backlinks, err := s.Constellation.GetBacklinks(ctx, repoURI, core.RepoPullNSID, ".target.repo", limit, "")
+	links, err := repoBacklinks(ctx, s.Constellation, s.HTTPClient, repoURI, core.RepoPullNSID, ".target.repo", limit, "")
 	if err != nil {
 		return nil, err
 	}
-	pulls := make([]Pull, 0, len(backlinks.Records))
-	for _, link := range backlinks.Records {
+	pulls := make([]Pull, 0, len(links))
+	for _, link := range links {
 		pull, err := s.getPullByParts(ctx, link.DID, link.Collection, link.RKey)
 		if err != nil {
 			continue
@@ -104,13 +104,17 @@ func (s *PullService) CreatePull(ctx context.Context, session *auth.Session, opt
 	if opts.HeadBranch == "" {
 		return nil, fmt.Errorf("head branch is required")
 	}
-	repoIdentifier := opts.Repo.RepoDID
-	if repoIdentifier == "" {
-		ownerDID, _, err := resolveOwner(ctx, opts.Repo.Owner)
+	repoDID := opts.Repo.RepoDID
+	if repoDID == "" {
+		var err error
+		repoDID, err = ResolveRepoDID(ctx, opts.RepoURI, s.HTTPClient)
 		if err != nil {
 			return nil, err
 		}
-		repoIdentifier = ownerDID + "/" + opts.Repo.Name
+	}
+	repoIdentifier := opts.Repo.RepoDID
+	if repoIdentifier == "" {
+		repoIdentifier = repoDID
 	}
 	compare, err := NewKnotClient(opts.Repo.Knot, WithKnotHTTPClient(s.HTTPClient)).Compare(ctx, repoIdentifier, opts.BaseBranch, opts.HeadBranch)
 	if err != nil {
@@ -158,12 +162,11 @@ func (s *PullService) CreatePull(ctx context.Context, session *auth.Session, opt
 		Body:          optionalString(body),
 		CreatedAt:     now,
 		Target: &core.RepoPull_Target{
-			Repo:    &opts.RepoURI,
-			RepoDid: optionalString(opts.Repo.RepoDID),
-			Branch:  opts.BaseBranch,
+			Repo:   repoDID,
+			Branch: opts.BaseBranch,
 		},
 		Source: &core.RepoPull_Source{
-			Repo:   &opts.RepoURI,
+			Repo:   &repoDID,
 			Branch: opts.HeadBranch,
 		},
 		Rounds: []*core.RepoPull_Round{{
@@ -176,7 +179,7 @@ func (s *PullService) CreatePull(ctx context.Context, session *auth.Session, opt
 	if err != nil {
 		return nil, err
 	}
-	return &Pull{Title: title, Body: body, Status: "open", Author: session.DID, CreatedAt: now, URI: out.Uri, CID: out.Cid, Target: opts.BaseBranch, Source: opts.RepoURI, Branch: opts.HeadBranch}, nil
+	return &Pull{Title: title, Body: body, Status: "open", Author: session.DID, CreatedAt: now, URI: out.Uri, CID: out.Cid, Target: opts.BaseBranch, Source: repoDID, Branch: opts.HeadBranch}, nil
 }
 
 func (s *PullService) GetPull(ctx context.Context, pullURI string) (*Pull, error) {

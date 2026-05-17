@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/bluesky-social/indigo v0.0.0-20260220055544-bf41e2ee75ab
 	github.com/spf13/cobra v1.10.2
+	github.com/whyrusleeping/cbor-gen v0.3.1
 	golang.org/x/term v0.40.0
 )
 
@@ -61,7 +62,6 @@ require (
 	github.com/vmihailenco/go-tinylfu v0.2.2 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/whyrusleeping/cbor-gen v0.3.1 // indirect
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b // indirect
 	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -88,5 +88,5 @@ require (
 	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/zalando/go-keyring v0.2.8
-	tangled.org/core v1.13.0-alpha.0.20260502074102-37303f21368b
+	tangled.org/core v1.14.0-alpha
 )

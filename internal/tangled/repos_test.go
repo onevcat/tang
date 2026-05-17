@@ -11,8 +11,9 @@ import (
 )
 
 func TestRepoFromRecordBuildsCloneURLs(t *testing.T) {
+	name := "tang"
 	repo := repoFromRecord("onev.cat", "at://did/sh.tangled.repo/r", "cid", &core.Repo{
-		Name:      "tang",
+		Name:      &name,
 		Knot:      "knot.example.com",
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
@@ -25,8 +26,9 @@ func TestRepoFromRecordBuildsCloneURLs(t *testing.T) {
 }
 
 func TestRepoFromRecordUsesHostedCloneHostForDefaultHostedKnot(t *testing.T) {
+	name := "tang"
 	repo := repoFromRecord("onev.cat", "at://did/sh.tangled.repo/r", "cid", &core.Repo{
-		Name:      "tang",
+		Name:      &name,
 		Knot:      "knot1.tangled.sh",
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
@@ -75,10 +77,11 @@ func TestRepoCloneURLRejectsUnsupportedProtocol(t *testing.T) {
 }
 
 func TestRepoFromRecordCopiesOptionalFields(t *testing.T) {
+	name := "tang"
 	description := "Command-line client"
 	repoDID := "did:plc:repo"
 	repo := repoFromRecord("onev.cat", "at://did/sh.tangled.repo/r", "cid", &core.Repo{
-		Name:        "tang",
+		Name:        &name,
 		Knot:        "knot.example.com",
 		Description: &description,
 		RepoDid:     &repoDID,
