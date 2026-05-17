@@ -2,7 +2,7 @@
 
 All notable user-facing changes are recorded here.
 
-## Unreleased
+## 0.0.3
 
 - Repository lookup now supports web-created repository records whose
   `record.name` is empty by falling back to the repo record rkey.
