@@ -52,7 +52,7 @@ func BuildRepoATURI(ctx context.Context, context *repo.RepositoryContext) (strin
 	}
 	for _, record := range records.Records {
 		value, ok := record.Value.Val.(*core.Repo)
-		if ok && value.Name != nil && *value.Name == context.Name {
+		if ok && repoNameFromRecord(record.Uri, value) == context.Name {
 			return record.Uri, nil
 		}
 	}

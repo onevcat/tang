@@ -4,6 +4,9 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+- Repository lookup now supports web-created repository records whose
+  `record.name` is empty by falling back to the repo record rkey.
+
 ## 0.0.2
 
 - Updated `tangled.org/core` to `v1.14.0-alpha` to match the current Tangled

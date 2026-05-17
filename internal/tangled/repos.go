@@ -152,10 +152,7 @@ func (s *RepoService) CloneURL(repo Repo) (string, error) {
 }
 
 func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
-	name := ""
-	if record.Name != nil {
-		name = *record.Name
-	}
+	name := repoNameFromRecord(uri, record)
 	description := ""
 	if record.Description != nil {
 		description = *record.Description
@@ -177,6 +174,13 @@ func repoFromRecord(owner, uri, cid string, record *core.Repo) Repo {
 		CloneSSH:    fmt.Sprintf("git@%s:%s/%s", cloneHost, owner, name),
 		CloneHTTPS:  fmt.Sprintf("https://%s/%s/%s", cloneHost, owner, name),
 	}
+}
+
+func repoNameFromRecord(uri string, record *core.Repo) string {
+	if record.Name != nil && strings.TrimSpace(*record.Name) != "" {
+		return *record.Name
+	}
+	return RKeyFromURI(uri)
 }
 
 func cloneHostForKnot(knot string) string {

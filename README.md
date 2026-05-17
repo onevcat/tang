@@ -426,20 +426,25 @@ resolution, and API mapping, use `internal/tangled`, `internal/git`, or
 - Numeric issue and pull request IDs are AppView IDs. If AppView misses a
   valid PDS record, numeric resolution cannot find it; use `--atproto` with the
   record rkey, rkey prefix, or full AT URI to inspect raw protocol data.
-- AppView is not yet a complete projection of Tangled's ATProto records. In
-  particular, protocol-level issue state records
-  (`sh.tangled.repo.issue.state`) and pull request status records
-  (`sh.tangled.repo.pull.status`) can be visible to `tang` while the web UI
-  still shows stale state. Pull request records themselves may also fail to
-  appear in AppView even when they exist on the author's PDS and are indexed by
-  Constellation. Track upstream progress in
+- AppView is not yet a complete projection of Tangled's ATProto records.
+  Protocol-level issue state records (`sh.tangled.repo.issue.state`) and pull
+  request status records (`sh.tangled.repo.pull.status`) can be visible to
+  `tang` while the web UI still shows stale state. Track upstream progress in
   [tangled.org/core#462](https://tangled.org/tangled.org/core/issues/462),
   [tangled.org/core#282](https://tangled.org/tangled.org/core/issues/282), and
   [tangled.org/core#517](https://tangled.org/tangled.org/core/issues/517) for
   status records that are not synchronized into AppView; this is an upstream
-  AppView projection issue rather than a `tang` CLI state bug. Also see
-  [tangled.org/core#575](https://tangled.org/tangled.org/core/issues/575) for
-  skipped pull/issue projection and
+  AppView projection issue rather than a `tang` CLI state bug.
+- AppView-created pull requests and CLI-created pull requests do not currently
+  exercise the same ingestion path. The web UI writes its own AppView database
+  rows when it creates a pull request, while `tang pr create` writes an
+  ATProto `sh.tangled.repo.pull` record and depends on AppView's firehose
+  ingester to project it. We have observed CLI-created pull records that exist
+  on the author's PDS and are indexed by Constellation, with valid gzipped patch
+  blobs, but never receive a `/pulls/N` AppView page. Track the concrete case in
+  [tangled.org/core#576](https://tangled.org/tangled.org/core/issues/576).
+  Also see [tangled.org/core#575](https://tangled.org/tangled.org/core/issues/575)
+  for related skipped pull/issue projection and
   [the pull status ingestion record](https://pdsls.dev/at://did:plc:kl2ejrmz5zmxnno3ll4luz76/sh.tangled.repo.issue/3mkuyuh6t3l2k).
 - Some older pull request records do not contain patch rounds, so `pr diff` and
   `pr checkout` cannot operate on them.

@@ -25,6 +25,24 @@ func TestRepoFromRecordBuildsCloneURLs(t *testing.T) {
 	}
 }
 
+func TestRepoFromRecordFallsBackToRKeyWhenNameIsEmpty(t *testing.T) {
+	empty := ""
+	repo := repoFromRecord("onev.cat", "at://did:plc:alice/sh.tangled.repo/tang-manual-repo", "cid", &core.Repo{
+		Name:      &empty,
+		Knot:      "knot1.tangled.sh",
+		CreatedAt: "2026-05-02T00:00:00Z",
+	})
+	if repo.Name != "tang-manual-repo" {
+		t.Fatalf("Name = %q", repo.Name)
+	}
+	if repo.CloneSSH != "git@tangled.org:onev.cat/tang-manual-repo" {
+		t.Fatalf("CloneSSH = %q", repo.CloneSSH)
+	}
+	if repo.CloneHTTPS != "https://tangled.org/onev.cat/tang-manual-repo" {
+		t.Fatalf("CloneHTTPS = %q", repo.CloneHTTPS)
+	}
+}
+
 func TestRepoFromRecordUsesHostedCloneHostForDefaultHostedKnot(t *testing.T) {
 	name := "tang"
 	repo := repoFromRecord("onev.cat", "at://did/sh.tangled.repo/r", "cid", &core.Repo{

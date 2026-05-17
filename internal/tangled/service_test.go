@@ -625,6 +625,27 @@ func TestBuildRepoATURIUsesResolvedOwnerRecords(t *testing.T) {
 	}
 }
 
+func TestBuildRepoATURIUsesRKeyWhenRecordNameIsEmpty(t *testing.T) {
+	const did = "did:plc:alice"
+	pds := newFakePDSServer(t, map[string]fakeRecord{
+		core.RepoNSID + "/tang-manual-repo": {
+			URI:        "at://did:plc:alice/sh.tangled.repo/tang-manual-repo",
+			CID:        "repo-cid",
+			Lexicon:    core.RepoNSID,
+			RecordJSON: `{"$type":"sh.tangled.repo","name":"","knot":"knot1.tangled.sh","repoDid":"did:plc:repo","createdAt":"2026-05-02T00:00:00Z"}`,
+		},
+	})
+	stubResolvers(t, did, "onev.cat", pds.URL)
+
+	uri, err := BuildRepoATURI(context.Background(), &localrepo.RepositoryContext{Owner: "onev.cat", Name: "tang-manual-repo"})
+	if err != nil {
+		t.Fatalf("BuildRepoATURI error = %v", err)
+	}
+	if uri != "at://did:plc:alice/sh.tangled.repo/tang-manual-repo" {
+		t.Fatalf("uri = %q", uri)
+	}
+}
+
 func TestRepoServiceCreateRepo(t *testing.T) {
 	server := newCombinedXRPCServer(t)
 	host := strings.TrimPrefix(server.URL, "https://")
