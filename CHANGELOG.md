@@ -4,6 +4,8 @@ All notable user-facing changes are recorded here.
 
 ## Unreleased
 
+## 0.0.2
+
 - Align numeric issue and pull request arguments with Tangled AppView numbers.
 - Added `--atproto` raw record mode for issue and pull request list/view/action
   commands; it accepts AT URIs, rkeys, or unique rkey prefixes and rejects
